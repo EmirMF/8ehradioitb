@@ -13,7 +13,7 @@ const navItems = [
   { href: "/dashboard", label: "Home", icon: FiHome, roles: ["MUSIC", "DEVELOPER", "TECHNIC", "REPORTER", "KRU"] },
   { href: "/dashboard/blog", label: "Blog", icon: FiEdit, roles: ["DEVELOPER", "REPORTER"] },
   { href: "/dashboard/podcast", label: "Podcast", icon: FiMic, roles: ["DEVELOPER", "MUSIC"] },
-  { href: "/dashboard/links", label: "Links", icon: FiLink, roles: ["MUSIC", "DEVELOPER", "TECHNIC", "REPORTER", "KRU"] },
+  { href: "/dashboard/links", label: "Links & QR Codes", icon: FiLink, roles: ["MUSIC", "DEVELOPER", "TECHNIC", "REPORTER", "KRU"] },
   { href: "/dashboard/forms", label: "Forms", icon: FiClipboard, roles: ["MUSIC", "DEVELOPER", "TECHNIC", "REPORTER", "KRU", "DATA"] },
   { href: "/dashboard/profile-catalog", label: "Profile Fields", icon: FiCheckSquare, roles: ["DEVELOPER", "DATA"] },
   { href: "/dashboard/kru-database", label: "Kru Database", icon: FiDatabase, roles: ["DEVELOPER", "DATA"] },
