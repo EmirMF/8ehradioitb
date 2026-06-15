@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import ButtonPrimary from "@/app/components/ButtonPrimary";
 import { FiCopy, FiEdit, FiTrash2, FiEye, FiLink, FiCalendar, FiBarChart2, FiLock, FiPlus, FiX } from "react-icons/fi";
+import { BsQrCode } from "react-icons/bs";
+import QRCodeModal from "@/app/components/QRCodeModal";
 
 function FormInput({ label, type = "text", placeholder, value, onChange, name, error }) {
     return (
@@ -21,7 +23,7 @@ function FormInput({ label, type = "text", placeholder, value, onChange, name, e
     );
 }
 
-function ShortLinkCard({ shortLink, onEdit, onDelete, onViewAnalytics }) {
+function ShortLinkCard({ shortLink, onEdit, onDelete, onViewAnalytics, onViewQR }) {
     const [copied, setCopied] = useState(false);
     const fullUrl = `https://8eh.link/${shortLink.slug}`;
 
@@ -61,6 +63,13 @@ function ShortLinkCard({ shortLink, onEdit, onDelete, onViewAnalytics }) {
                         title="View Analytics"
                     >
                         <FiBarChart2 size={18} />
+                    </button>
+                    <button
+                        onClick={() => onViewQR(shortLink)}
+                        className="p-2 text-gray-400 hover:text-purple-600 transition-colors rounded-lg hover:bg-purple-50"
+                        title="QR Code"
+                    >
+                        <BsQrCode size={18} />
                     </button>
                     <button
                         onClick={() => onEdit(shortLink)}
@@ -184,6 +193,7 @@ export default function LinksDashboardPage() {
     const [isEditing, setIsEditing] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [analyticsModal, setAnalyticsModal] = useState({ isOpen: false, shortLink: null, analytics: null });
+    const [qrModal, setQrModal] = useState({ isOpen: false, shortLink: null });
 
     useEffect(() => {
         fetchShortLinks();
@@ -300,6 +310,10 @@ export default function LinksDashboardPage() {
         }
     };
 
+    const handleViewQR = (shortLink) => {
+        setQrModal({ isOpen: true, shortLink });
+    };
+
     const handleViewAnalytics = async (shortLink) => {
         try {
             const response = await fetch(`/api/shortlinks/${shortLink.id}/analytics`);
@@ -409,7 +423,7 @@ export default function LinksDashboardPage() {
 
             {shortLinks.length > 0 && (
                 <div>
-                    <h2 className="text-xl font-heading font-bold mb-6 text-gray-800">All Short Links</h2>
+                    <h2 className="text-xl font-heading font-bold mb-6 text-gray-800">All Short Links & QR Codes</h2>
                     <div className="space-y-4">
                         {shortLinks.map((shortLink) => (
                             <ShortLinkCard
@@ -418,6 +432,7 @@ export default function LinksDashboardPage() {
                                 onEdit={handleEdit}
                                 onDelete={handleDelete}
                                 onViewAnalytics={handleViewAnalytics}
+                                onViewQR={handleViewQR}
                             />
                         ))}
                     </div>
@@ -429,6 +444,11 @@ export default function LinksDashboardPage() {
                 analytics={analyticsModal.analytics}
                 isOpen={analyticsModal.isOpen}
                 onClose={() => setAnalyticsModal({ isOpen: false, shortLink: null, analytics: null })}
+            />
+            <QRCodeModal
+                shortLink={qrModal.shortLink}
+                isOpen={qrModal.isOpen}
+                onClose={() => setQrModal({ isOpen: false, shortLink: null })}
             />
         </div>
     );
