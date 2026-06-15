@@ -6,6 +6,29 @@ import FooterSection from "@/app/components/FooterSection";
 import Pagination from "@/app/components/Pagination";
 import { prisma } from "@/lib/prisma";
 
+export const metadata = {
+  title: "Semua Artikel — 8EH Radio ITB",
+  description:
+    "Jelajahi semua artikel dan cerita dari 8EH Radio ITB. Temukan konten terbaru seputar kampus, musik, podcast, dan edutainment.",
+  alternates: {
+    canonical: "https://8ehradioitb.com/blog/all",
+  },
+  openGraph: {
+    title: "Semua Artikel — 8EH Radio ITB",
+    description:
+      "Jelajahi semua artikel dan cerita dari 8EH Radio ITB. Temukan konten terbaru seputar kampus, musik, podcast, dan edutainment.",
+    url: "https://8ehradioitb.com/blog/all",
+    type: "website",
+    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Semua Artikel 8EH Radio ITB" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Semua Artikel — 8EH Radio ITB",
+    description:
+      "Jelajahi semua artikel dan cerita dari 8EH Radio ITB. Temukan konten terbaru seputar kampus, musik, podcast, dan edutainment.",
+  },
+};
+
 const POSTS_PER_PAGE = 9;
 
 const BlogCard = ({ article }) => (
