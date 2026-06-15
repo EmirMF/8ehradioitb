@@ -29,6 +29,23 @@ const getPost = cache(async (slug) => {
   return post;
 });
 
+const SITE_URL = "https://8ehradioitb.com";
+
+function stripMarkdown(text = "") {
+  return text
+    .replace(/!\[.*?\]\(.*?\)/g, "")
+    .replace(/\[([^\]]+)\]\(.*?\)/g, "$1")
+    .replace(/#{1,6}\s+/g, "")
+    .replace(/(\*\*|__)(.*?)\1/g, "$2")
+    .replace(/(\*|_)(.*?)\1/g, "$2")
+    .replace(/`{1,3}[^`]*`{1,3}/g, "")
+    .replace(/^\s*[-*+]\s+/gm, "")
+    .replace(/^\s*\d+\.\s+/gm, "")
+    .replace(/>\s?/g, "")
+    .replace(/\n+/g, " ")
+    .trim();
+}
+
 export async function generateMetadata({ params }) {
   const slug = await params.slug;
   const post = await getPost(slug);
@@ -40,19 +57,20 @@ export async function generateMetadata({ params }) {
     };
   }
 
-  const description = post.description || post.content?.substring(0, 160);
+  const rawDescription = post.description || post.content?.substring(0, 300);
+  const description = stripMarkdown(rawDescription).substring(0, 160);
 
   return {
     title: post.title,
     description: description,
     keywords: post.tags,
     alternates: {
-      canonical: `${process.env.NEXT_PUBLIC_SITE_URL}/blog/${post.slug}`,
+      canonical: `${SITE_URL}/blog/${post.slug}`,
     },
     openGraph: {
       title: post.title,
       description: description,
-      url: `${process.env.NEXT_PUBLIC_SITE_URL}/blog/${post.slug}`,
+      url: `${SITE_URL}/blog/${post.slug}`,
       images: [
         {
           url: post.mainImage || "/8eh-real-long.png",
@@ -128,7 +146,7 @@ export default async function BlogPostPage({ params }) {
                 {/* LinkedIn Share */}
                 <a
                   href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(
-                    `${process.env.NEXT_PUBLIC_SITE_URL}/blog/${post.slug}`,
+                    `${SITE_URL}/blog/${post.slug}`,
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -145,7 +163,7 @@ export default async function BlogPostPage({ params }) {
                 {/* X/Twitter Share */}
                 <a
                   href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(
-                    `${process.env.NEXT_PUBLIC_SITE_URL}/blog/${post.slug}`,
+                    `${SITE_URL}/blog/${post.slug}`,
                   )}&text=${encodeURIComponent(`Artikel terbaru 8EH Radio ITB, '${post.title}', seru banget! Gimana menurutmu? Baca selengkapnya:`)}`}
                   target="_blank"
                   rel="noopener noreferrer"
