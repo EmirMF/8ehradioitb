@@ -341,3 +341,79 @@ model ProgramVideo {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
+
+// ── Guest Session ─────────────────────────────────────────────────────────────
+model GuestSession {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId    String   @unique
+  guestName    String
+  ipAddress    String?
+  isMuted      Boolean  @default(false)
+  requestCount Int      @default(0)
+  broadcastId  String?  @db.ObjectId
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  chatMessages ChatMessage[]
+  songRequests SongRequest[]
+
+  @@index([broadcastId])
+}
+
+// ── Live Chat ─────────────────────────────────────────────────────────────────
+model ChatRoom {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  broadcastId String?   @db.ObjectId
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  closedAt    DateTime?
+
+  messages ChatMessage[]
+}
+
+model ChatMessage {
+  id           String       @id @default(auto()) @map("_id") @db.ObjectId
+  roomId       String       @db.ObjectId
+  room         ChatRoom     @relation(fields: [roomId], references: [id])
+  guestId      String       @db.ObjectId
+  guestSession GuestSession @relation(fields: [guestId], references: [id])
+  guestName    String
+  content      String
+  isDeleted    Boolean      @default(false)
+  deletedById  String?      @db.ObjectId
+  deletedAt    DateTime?
+  createdAt    DateTime     @default(now())
+
+  @@index([roomId, createdAt])
+  @@index([guestId])
+}
+
+// ── Song Request ──────────────────────────────────────────────────────────────
+enum SongRequestStatus {
+  PENDING
+  QUEUED
+  NOW_PLAYING
+  DONE
+  REJECTED
+}
+
+model SongRequest {
+  id             String            @id @default(auto()) @map("_id") @db.ObjectId
+  guestId        String            @db.ObjectId
+  guestSession   GuestSession      @relation(fields: [guestId], references: [id])
+  guestName      String
+  songTitle      String
+  songArtist     String
+  songCoverUrl   String?
+  itunesTrackId  String?
+  message        String?
+  status         SongRequestStatus @default(PENDING)
+  rejectedReason String?
+  broadcastId    String?           @db.ObjectId
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([broadcastId, status])
+  @@index([guestId])
+  @@index([status, createdAt])
+}
