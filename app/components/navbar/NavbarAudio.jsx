@@ -7,6 +7,8 @@ export default function NavbarAudio({ onAir, variant }) {
   const [volume, setVolume] = useState(1);
   const [localLoading, setLocalLoading] = useState(false); // For mobile sync
   const audioRef = useRef(null);
+  const reconnectTimerRef = useRef(null);
+  const isPlayingRef = useRef(false);
 
   /* ------------------------------------------------------------- */
   /* Radio stream logic                                            */
@@ -104,6 +106,10 @@ export default function NavbarAudio({ onAir, variant }) {
   /* External events                                               */
   /* ------------------------------------------------------------- */
   useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
+
+  useEffect(() => {
     const handlePlayReq = () => {
       // Only host (desktop) acts on requests
       if (variant === "desktop" && !isPlaying) playStream();
@@ -138,6 +144,58 @@ export default function NavbarAudio({ onAir, variant }) {
       window.removeEventListener("volumeChanged", handleVolumeChanged);
     };
   }, [isPlaying, playStream, pauseStream, variant]);
+
+  useEffect(() => {
+  // Hanya desktop yang punya audio element
+  if (variant !== "desktop") return;
+  const audio = audioRef.current;
+  if (!audio) return;
+
+  const scheduleReconnect = () => {
+    if (!isPlayingRef.current) return;
+    if (reconnectTimerRef.current) return;
+
+    reconnectTimerRef.current = setTimeout(() => {
+      reconnectTimerRef.current = null;
+      if (isPlayingRef.current) {
+        console.log("[Radio] Auto-reconnecting...");
+        playStream();
+      }
+    }, 2000);
+  };
+
+  const handleStalled = () => {
+    console.log("[Radio] Stream stalled");
+    scheduleReconnect();
+  };
+
+  const handleError = () => {
+    console.log("[Radio] Stream error");
+    setIsPlaying(false);
+    emitAudioStateChanged(false);
+    scheduleReconnect();
+  };
+
+  const handleEnded = () => {
+    console.log("[Radio] Stream ended unexpectedly");
+    scheduleReconnect();
+  };
+
+  audio.addEventListener("stalled", handleStalled);
+  audio.addEventListener("error", handleError);
+  audio.addEventListener("ended", handleEnded);
+
+  return () => {
+    audio.removeEventListener("stalled", handleStalled);
+    audio.removeEventListener("error", handleError);
+    audio.removeEventListener("ended", handleEnded);
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+  };
+}, [variant, playStream, emitAudioStateChanged]);
+
 
   /* ------------------------------------------------------------- */
   /* Render Logic                                                  */
