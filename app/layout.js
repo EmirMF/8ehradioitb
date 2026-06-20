@@ -7,6 +7,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import StructuredData from "@/app/components/StructuredData";
 import ChatWidgetWrapper from "@/app/components/ai/ChatWidgetWrapper";
+import LiveProviders from "@/app/components/LiveProviders";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -155,7 +156,9 @@ export default async function RootLayout({ children }) {
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${plusJakartaSans.variable} ${arimo.variable} ${instrumentSerif.variable} antialiased`}
       >
-        <AuthProvider session={session}>{children}</AuthProvider>
+        <AuthProvider session={session}>
+          <LiveProviders>{children}</LiveProviders>
+        </AuthProvider>
         <div>
           <GlobalAudioPlayer />
         </div>

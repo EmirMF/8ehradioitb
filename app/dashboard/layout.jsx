@@ -43,10 +43,10 @@ export default function DashboardLayout({ children }) {
         <main className="flex-1 p-4 sm:p-6 md:p-8">
           {children}
         </main>
-        <footer className="text-xs text-gray-500 font-body text-center py-4">
+        {/* <footer className="text-xs text-gray-500 font-body text-center py-4">
           © {new Date().getFullYear()} Technic 8EH Radio ITB. All rights
           reserved.
-        </footer>
+        </footer> */}
       </div>
     </div>
   );

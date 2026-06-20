@@ -343,6 +343,18 @@ model ProgramVideo {
 }
 
 
+// ── Broadcast (satu sesi siaran) ──────────────────────
+// Direferensikan oleh GuestSession/ChatRoom/ChatMessage/SongRequest
+// via field `broadcastId` (string ObjectId). Aktif saat StreamConfig.onAir=true.
+model Broadcast {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  isActive  Boolean   @default(true)
+  startedAt DateTime @default(now())
+  endedAt   DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 // ── Guest Session ─────────────────────────────────────
 model GuestSession {
   id           String   @id @default(auto()) @map("_id") @db.ObjectId

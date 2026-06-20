@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
+import { useOnAirStatus } from "@/app/hooks/useOnAirStatus";
 
 /**
  * GlobalAudioPlayer
@@ -18,6 +19,7 @@ import Image from "next/image";
  *    components (e.g. the Navbar mobile play button) stay in sync.
  */
 const GlobalAudioPlayer = () => {
+  const { isOnAir } = useOnAirStatus();
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(1);
   const [showPlayer, setShowPlayer] = useState(false);
@@ -147,6 +149,42 @@ const GlobalAudioPlayer = () => {
   /* --------------------------------------------------------------------- */
   return (
     <>
+      {/* Floating live interaction buttons — always visible when onAir, even if player is hidden */}
+      {isOnAir && !isVisible && (
+        <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent("songRequestQueue:open"))}
+            className="w-12 h-12 bg-white hover:bg-gray-50 text-[#D83232] border border-gray-200 rounded-full shadow-lg flex items-center justify-center transition-colors cursor-pointer"
+            title="Antrian Lagu"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+              <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent("liveChat:open"))}
+            className="w-12 h-12 bg-[#D83232] hover:bg-[#B72929] text-white rounded-full shadow-lg flex items-center justify-center transition-colors cursor-pointer"
+            title="Live Chat"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent("songRequest:open"))}
+            className="w-12 h-12 bg-[#D83232] hover:bg-[#B72929] text-white rounded-full shadow-lg flex items-center justify-center transition-colors cursor-pointer"
+            title="Request Lagu"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+              <circle cx="5.5" cy="17.5" r="2.5" /><circle cx="17.5" cy="15.5" r="2.5" /><path d="M8 17V5l12-2v12" />
+            </svg>
+          </button>
+        </div>
+      )}
+
       {isVisible && (
         <div className="fixed bottom-0 left-0 right-0 z-50">
           {/* Player UI layer */}
@@ -185,7 +223,7 @@ const GlobalAudioPlayer = () => {
                   />
                 </div>
 
-                <div className="text-sm min-w-0 w-48 md:w-60 flex-shrink-0">
+                <div className="text-sm min-w-0 w-32 md:w-60 flex-shrink-0">
                   <p className="font-heading font-bold text-gray-800 truncate text-xs md:text-sm">
                     {playerConfig.title || "8EH Radio ITB"}
                   </p>
@@ -197,6 +235,41 @@ const GlobalAudioPlayer = () => {
                     Live Now
                   </p>
                 </div>
+                {/* Mobile: Live interaction buttons */}
+                {isOnAir && (
+                  <div className="flex md:hidden items-center gap-1 ml-auto flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => window.dispatchEvent(new CustomEvent("songRequestQueue:open"))}
+                      className="p-1.5 text-gray-500 hover:text-[#D83232] rounded-full cursor-pointer"
+                      title="Antrian Lagu"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                        <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => window.dispatchEvent(new CustomEvent("liveChat:open"))}
+                      className="p-1.5 text-gray-500 hover:text-[#D83232] rounded-full cursor-pointer"
+                      title="Live Chat"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => window.dispatchEvent(new CustomEvent("songRequest:open"))}
+                      className="p-1.5 text-gray-500 hover:text-[#D83232] rounded-full cursor-pointer"
+                      title="Request Lagu"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                        <circle cx="5.5" cy="17.5" r="2.5" /><circle cx="17.5" cy="15.5" r="2.5" /><path d="M8 17V5l12-2v12" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* 2. Controls & Progress - Desktop only */}
@@ -265,7 +338,43 @@ const GlobalAudioPlayer = () => {
                 </div>
               </div>
 
-              {/* 3. Volume */}
+              {/* 3. Live Interaction Buttons */}
+              {isOnAir && (
+                <div className="hidden md:flex items-center gap-1.5 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => window.dispatchEvent(new CustomEvent("songRequestQueue:open"))}
+                    className="p-2 text-gray-500 hover:text-[#D83232] hover:bg-red-50 rounded-full transition-colors cursor-pointer"
+                    title="Antrian Lagu"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+                      <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => window.dispatchEvent(new CustomEvent("liveChat:open"))}
+                    className="p-2 text-gray-500 hover:text-[#D83232] hover:bg-red-50 rounded-full transition-colors cursor-pointer"
+                    title="Live Chat"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => window.dispatchEvent(new CustomEvent("songRequest:open"))}
+                    className="p-2 text-gray-500 hover:text-[#D83232] hover:bg-red-50 rounded-full transition-colors cursor-pointer"
+                    title="Request Lagu"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+                      <circle cx="5.5" cy="17.5" r="2.5" /><circle cx="17.5" cy="15.5" r="2.5" /><path d="M8 17V5l12-2v12" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+
+              {/* 4. Volume */}
               <div className="hidden md:flex items-center gap-2 flex-shrink-0 w-32 justify-end">
                 <button
                   type="button"

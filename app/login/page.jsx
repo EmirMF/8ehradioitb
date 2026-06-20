@@ -43,7 +43,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex flex-col bg-[#F7D6D6]">
       <div className="flex-1 grid grid-cols-1 md:grid-cols-2">
         {/* Left Panel */}
-        <div className="hidden md:flex flex-col items-center justify-center p-12 relative">
+        {/* <div className="hidden md:flex flex-col items-center justify-center p-12 relative">
           <Image
             src="/8eh.png"
             alt="8EH Radio Logo"
@@ -54,7 +54,7 @@ export default function LoginPage() {
           <h2 className="font-heading text-4xl font-bold italic text-[#E36F6F] mt-4">
             #Meresonansi&Berkarya
           </h2>
-        </div>
+        </div> */}
 
         {/* Right Panel */}
         <div className="flex flex-col items-center justify-center p-8">
@@ -70,12 +70,12 @@ export default function LoginPage() {
               />
             </div>
 
-            <h1 className="text-5xl font-heading font-semibold text-gray-900">
+            {/* <h1 className="text-5xl font-heading font-semibold text-gray-900">
               Ahoy, Kru’s!
             </h1>
             <p className="text-sm font-body text-gray-700 mt-6 mb-4">
               Login to your account
-            </p>
+            </p> */}
 
             {errorMessage && (
               <div className="mb-4 rounded-md bg-red-100 border border-red-300 px-4 py-3 text-sm text-red-700 text-left">
@@ -98,9 +98,9 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
-      <footer className="text-xs text-gray-500 font-body text-center py-4 mb-4">
+      {/* <footer className="text-xs text-gray-500 font-body text-center py-4 mb-4">
         © {new Date().getFullYear()} Technic 8EH Radio ITB. All rights reserved.
-      </footer>
+      </footer> */}
     </div>
   );
 
