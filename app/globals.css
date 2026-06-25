@@ -131,3 +131,25 @@ body {
 
 @tailwind base;
 @tailwind components;
+
+/* Restore list styles stripped by Tailwind preflight inside the MD editor preview */
+.wmde-markdown ol {
+  list-style-type: decimal;
+  padding-left: 2em;
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+.wmde-markdown ul {
+  list-style-type: disc;
+  padding-left: 2em;
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+.wmde-markdown ol ol,
+.wmde-markdown ul ul,
+.wmde-markdown ol ul {
+  margin-top: 0;
+  margin-bottom: 0;
+}

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import useSWR from "swr";
 import AIAssistModal from "./ai/AIAssistModal";
+import MarkdownEditor from "./MarkdownEditor";
 
 const fetcher = (...args) => fetch(...args).then((res) => res.json());
 
@@ -122,6 +123,7 @@ export default function BlogForm({ post: initialPost, isEditing = false }) {
   const [customCategory, setCustomCategory] = useState("");
   const [isCustomCategory, setIsCustomCategory] = useState(false);
   const [isAuthorDropdownOpen, setIsAuthorDropdownOpen] = useState(false);
+  const [authorSearch, setAuthorSearch] = useState("");
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   const [isTitleModalOpen, setIsTitleModalOpen] = useState(false);
   const [aiInitialText, setAiInitialText] = useState("");
@@ -130,7 +132,6 @@ export default function BlogForm({ post: initialPost, isEditing = false }) {
   const [isGeneratingTags, setIsGeneratingTags] = useState(false);
   const [toast, setToast] = useState(null);
   const router = useRouter();
-  const contentRef = useRef(null);
   const authorDropdownRef = useRef(null);
   const { data: session } = useSession();
   const { data: users, error: usersError } = useSWR("/api/users", fetcher);
@@ -221,14 +222,7 @@ export default function BlogForm({ post: initialPost, isEditing = false }) {
       const data = await res.json();
       if (data.secure_url) {
         const markdownImage = `\n![${file.name}](${data.secure_url})\n`;
-        const textarea = contentRef.current;
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
-        const newContent =
-          post.content.substring(0, start) +
-          markdownImage +
-          post.content.substring(end);
-        setPost((prev) => ({ ...prev, content: newContent }));
+        setPost((prev) => ({ ...prev, content: prev.content + markdownImage }));
         showToast("Gambar berhasil diupload!", "success");
       } else {
         throw new Error("Image upload failed to return a secure URL.");
@@ -337,17 +331,7 @@ export default function BlogForm({ post: initialPost, isEditing = false }) {
   };
 
   const handleAIInsert = (text) => {
-    // Insert at cursor position or append to content
-    const textarea = contentRef.current;
-    if (textarea) {
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      const newContent =
-        post.content.substring(0, start) + text + post.content.substring(end);
-      setPost((prev) => ({ ...prev, content: newContent }));
-    } else {
-      setPost((prev) => ({ ...prev, content: prev.content + "\n" + text }));
-    }
+    setPost((prev) => ({ ...prev, content: prev.content + "\n" + text }));
   };
 
   const handleTitleInsert = (text) => {
@@ -438,10 +422,10 @@ export default function BlogForm({ post: initialPost, isEditing = false }) {
         {/* Title & Slug */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center mb-2">
               <label
                 htmlFor="title"
-                className="block text-sm font-medium text-gray-800 font-body mb-2"
+                className="block text-sm font-medium text-gray-800 font-body"
               >
                 Title
               </label>
@@ -484,10 +468,10 @@ export default function BlogForm({ post: initialPost, isEditing = false }) {
 
         {/* Content */}
         <div>
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center mb-2">
             <label
               htmlFor="content"
-              className="block text-sm font-medium text-gray-800 font-body mb-2"
+              className="block text-sm font-medium text-gray-800 font-body"
             >
               Content (Markdown)
             </label>
@@ -510,16 +494,10 @@ export default function BlogForm({ post: initialPost, isEditing = false }) {
               </label>
             </div>
           </div>
-          <textarea
-            name="content"
-            id="content"
-            ref={contentRef}
-            rows="15"
+          <MarkdownEditor
             value={post.content}
             onChange={handleChange}
-            className="mt-1 block w-full border border-gray-300 p-3 rounded-md font-body text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors font-mono"
-            required
-          ></textarea>
+          />
         </div>
 
         {/* Description */}
@@ -581,7 +559,11 @@ export default function BlogForm({ post: initialPost, isEditing = false }) {
           </label>
           <button
             type="button"
-            onClick={() => setIsAuthorDropdownOpen(!isAuthorDropdownOpen)}
+            onClick={() => {
+              const next = !isAuthorDropdownOpen;
+              setIsAuthorDropdownOpen(next);
+              if (!next) setAuthorSearch("");
+            }}
             className="mt-1 block w-full border border-gray-300 p-3 rounded-md font-body text-gray-900 bg-white text-left focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
           >
             {selectedAuthors.length > 0
@@ -589,36 +571,66 @@ export default function BlogForm({ post: initialPost, isEditing = false }) {
               : "Select authors..."}
           </button>
           {isAuthorDropdownOpen && (
-            <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
-              {usersError && (
-                <p className="p-4 text-red-700 font-body">
-                  Failed to load users.
-                </p>
-              )}
-              {!users && !usersError && (
-                <p className="p-4 font-body text-gray-700">Loading users...</p>
-              )}
-              {users?.map((user) => (
-                <div
-                  key={user.id}
-                  className="flex items-center p-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
-                >
-                  <input
-                    type="checkbox"
-                    id={`author-${user.id}`}
-                    checked={selectedAuthors.includes(user.id)}
-                    onChange={() => handleAuthorChange(user.id)}
-                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <label
-                    htmlFor={`author-${user.id}`}
-                    className="ml-3 block text-sm font-body text-gray-900 flex-1 cursor-pointer"
-                  >
-                    {user.name}{" "}
-                    <span className="text-gray-500">({user.email})</span>
-                  </label>
-                </div>
-              ))}
+            <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg">
+              {/* Search input */}
+              <div className="p-2 border-b border-gray-200">
+                <input
+                  type="text"
+                  value={authorSearch}
+                  onChange={(e) => setAuthorSearch(e.target.value)}
+                  placeholder="Cari author..."
+                  autoFocus
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md font-body text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              {/* List */}
+              <div className="max-h-52 overflow-y-auto">
+                {usersError && (
+                  <p className="p-4 text-red-700 font-body">
+                    Failed to load users.
+                  </p>
+                )}
+                {!users && !usersError && (
+                  <p className="p-4 font-body text-gray-700">Loading users...</p>
+                )}
+                {users && (() => {
+                  const filtered = users.filter((u) => {
+                    const q = authorSearch.toLowerCase();
+                    return (
+                      u.name?.toLowerCase().includes(q) ||
+                      u.email?.toLowerCase().includes(q)
+                    );
+                  });
+                  if (filtered.length === 0)
+                    return (
+                      <p className="p-4 text-sm text-gray-500 font-body">
+                        Tidak ada author ditemukan.
+                      </p>
+                    );
+                  return filtered.map((user) => (
+                    <div
+                      key={user.id}
+                      className="flex items-center p-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                    >
+                      <input
+                        type="checkbox"
+                        id={`author-${user.id}`}
+                        checked={selectedAuthors.includes(user.id)}
+                        onChange={() => handleAuthorChange(user.id)}
+                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <label
+                        htmlFor={`author-${user.id}`}
+                        className="ml-3 block text-sm font-body text-gray-900 flex-1 cursor-pointer"
+                      >
+                        {user.name}{" "}
+                        <span className="text-gray-500">({user.email})</span>
+                      </label>
+                    </div>
+                  ));
+                })()}
+              </div>
             </div>
           )}
         </div>
