@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import useSWR from "swr";
 import AIAssistModal from "./ai/AIAssistModal";
+import MarkdownEditor from "./MarkdownEditor";
 
 const fetcher = (...args) => fetch(...args).then((res) => res.json());
 
@@ -130,7 +131,6 @@ export default function BlogForm({ post: initialPost, isEditing = false }) {
   const [isGeneratingTags, setIsGeneratingTags] = useState(false);
   const [toast, setToast] = useState(null);
   const router = useRouter();
-  const contentRef = useRef(null);
   const authorDropdownRef = useRef(null);
   const { data: session } = useSession();
   const { data: users, error: usersError } = useSWR("/api/users", fetcher);
@@ -221,14 +221,7 @@ export default function BlogForm({ post: initialPost, isEditing = false }) {
       const data = await res.json();
       if (data.secure_url) {
         const markdownImage = `\n![${file.name}](${data.secure_url})\n`;
-        const textarea = contentRef.current;
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
-        const newContent =
-          post.content.substring(0, start) +
-          markdownImage +
-          post.content.substring(end);
-        setPost((prev) => ({ ...prev, content: newContent }));
+        setPost((prev) => ({ ...prev, content: prev.content + markdownImage }));
         showToast("Gambar berhasil diupload!", "success");
       } else {
         throw new Error("Image upload failed to return a secure URL.");
@@ -337,17 +330,7 @@ export default function BlogForm({ post: initialPost, isEditing = false }) {
   };
 
   const handleAIInsert = (text) => {
-    // Insert at cursor position or append to content
-    const textarea = contentRef.current;
-    if (textarea) {
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      const newContent =
-        post.content.substring(0, start) + text + post.content.substring(end);
-      setPost((prev) => ({ ...prev, content: newContent }));
-    } else {
-      setPost((prev) => ({ ...prev, content: prev.content + "\n" + text }));
-    }
+    setPost((prev) => ({ ...prev, content: prev.content + "\n" + text }));
   };
 
   const handleTitleInsert = (text) => {
@@ -438,10 +421,10 @@ export default function BlogForm({ post: initialPost, isEditing = false }) {
         {/* Title & Slug */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center mb-2">
               <label
                 htmlFor="title"
-                className="block text-sm font-medium text-gray-800 font-body mb-2"
+                className="block text-sm font-medium text-gray-800 font-body"
               >
                 Title
               </label>
@@ -484,10 +467,10 @@ export default function BlogForm({ post: initialPost, isEditing = false }) {
 
         {/* Content */}
         <div>
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center mb-2">
             <label
               htmlFor="content"
-              className="block text-sm font-medium text-gray-800 font-body mb-2"
+              className="block text-sm font-medium text-gray-800 font-body"
             >
               Content (Markdown)
             </label>
@@ -510,16 +493,10 @@ export default function BlogForm({ post: initialPost, isEditing = false }) {
               </label>
             </div>
           </div>
-          <textarea
-            name="content"
-            id="content"
-            ref={contentRef}
-            rows="15"
+          <MarkdownEditor
             value={post.content}
             onChange={handleChange}
-            className="mt-1 block w-full border border-gray-300 p-3 rounded-md font-body text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors font-mono"
-            required
-          ></textarea>
+          />
         </div>
 
         {/* Description */}
