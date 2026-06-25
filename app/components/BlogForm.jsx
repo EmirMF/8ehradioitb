@@ -123,6 +123,7 @@ export default function BlogForm({ post: initialPost, isEditing = false }) {
   const [customCategory, setCustomCategory] = useState("");
   const [isCustomCategory, setIsCustomCategory] = useState(false);
   const [isAuthorDropdownOpen, setIsAuthorDropdownOpen] = useState(false);
+  const [authorSearch, setAuthorSearch] = useState("");
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   const [isTitleModalOpen, setIsTitleModalOpen] = useState(false);
   const [aiInitialText, setAiInitialText] = useState("");
@@ -558,7 +559,11 @@ export default function BlogForm({ post: initialPost, isEditing = false }) {
           </label>
           <button
             type="button"
-            onClick={() => setIsAuthorDropdownOpen(!isAuthorDropdownOpen)}
+            onClick={() => {
+              const next = !isAuthorDropdownOpen;
+              setIsAuthorDropdownOpen(next);
+              if (!next) setAuthorSearch("");
+            }}
             className="mt-1 block w-full border border-gray-300 p-3 rounded-md font-body text-gray-900 bg-white text-left focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
           >
             {selectedAuthors.length > 0
@@ -566,36 +571,66 @@ export default function BlogForm({ post: initialPost, isEditing = false }) {
               : "Select authors..."}
           </button>
           {isAuthorDropdownOpen && (
-            <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
-              {usersError && (
-                <p className="p-4 text-red-700 font-body">
-                  Failed to load users.
-                </p>
-              )}
-              {!users && !usersError && (
-                <p className="p-4 font-body text-gray-700">Loading users...</p>
-              )}
-              {users?.map((user) => (
-                <div
-                  key={user.id}
-                  className="flex items-center p-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
-                >
-                  <input
-                    type="checkbox"
-                    id={`author-${user.id}`}
-                    checked={selectedAuthors.includes(user.id)}
-                    onChange={() => handleAuthorChange(user.id)}
-                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <label
-                    htmlFor={`author-${user.id}`}
-                    className="ml-3 block text-sm font-body text-gray-900 flex-1 cursor-pointer"
-                  >
-                    {user.name}{" "}
-                    <span className="text-gray-500">({user.email})</span>
-                  </label>
-                </div>
-              ))}
+            <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg">
+              {/* Search input */}
+              <div className="p-2 border-b border-gray-200">
+                <input
+                  type="text"
+                  value={authorSearch}
+                  onChange={(e) => setAuthorSearch(e.target.value)}
+                  placeholder="Cari author..."
+                  autoFocus
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md font-body text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              {/* List */}
+              <div className="max-h-52 overflow-y-auto">
+                {usersError && (
+                  <p className="p-4 text-red-700 font-body">
+                    Failed to load users.
+                  </p>
+                )}
+                {!users && !usersError && (
+                  <p className="p-4 font-body text-gray-700">Loading users...</p>
+                )}
+                {users && (() => {
+                  const filtered = users.filter((u) => {
+                    const q = authorSearch.toLowerCase();
+                    return (
+                      u.name?.toLowerCase().includes(q) ||
+                      u.email?.toLowerCase().includes(q)
+                    );
+                  });
+                  if (filtered.length === 0)
+                    return (
+                      <p className="p-4 text-sm text-gray-500 font-body">
+                        Tidak ada author ditemukan.
+                      </p>
+                    );
+                  return filtered.map((user) => (
+                    <div
+                      key={user.id}
+                      className="flex items-center p-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                    >
+                      <input
+                        type="checkbox"
+                        id={`author-${user.id}`}
+                        checked={selectedAuthors.includes(user.id)}
+                        onChange={() => handleAuthorChange(user.id)}
+                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <label
+                        htmlFor={`author-${user.id}`}
+                        className="ml-3 block text-sm font-body text-gray-900 flex-1 cursor-pointer"
+                      >
+                        {user.name}{" "}
+                        <span className="text-gray-500">({user.email})</span>
+                      </label>
+                    </div>
+                  ));
+                })()}
+              </div>
             </div>
           )}
         </div>
