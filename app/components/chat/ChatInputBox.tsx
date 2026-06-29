@@ -11,12 +11,20 @@ export default function ChatInputBox({ onSendMessage, disabled = false }: ChatIn
   const [text, setText] = useState('');
 
   const handleSend = () => {
-    const trimmedText = text.trim();
-    if (!trimmedText) return;
-    
-    onSendMessage(trimmedText);
-    setText('');
-  };
+  const trimmedText = text.trim();
+  if (!trimmedText) return;
+
+  console.log('onSendMessage type:', typeof onSendMessage);
+  console.log('onSendMessage value:', onSendMessage);
+
+  if (typeof onSendMessage !== 'function') {
+    console.error('onSendMessage bukan fungsi!', onSendMessage);
+    return;
+  }
+
+  onSendMessage(trimmedText);
+  setText('');
+};
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {

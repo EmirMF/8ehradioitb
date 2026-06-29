@@ -18,7 +18,7 @@ export default function LiveChatPage() {
   }, []);
 
   const handleSendMessage = (text: string) => {
-    if (userName) {
+    if (userName && typeof sendMessage === 'function') {
       sendMessage(text, userName);
     }
   };
@@ -52,7 +52,10 @@ export default function LiveChatPage() {
 
       <LiveChatWindow messages={messages} currentUserName={userName} />
 
-      <ChatInputBox onSendMessage={handleSendMessage} disabled={!userName} />
+      {/* Hanya render kalau handleSendMessage sudah siap */}
+      {typeof handleSendMessage === 'function' && (
+        <ChatInputBox onSendMessage={handleSendMessage} disabled={!userName} />
+      )}
     </div>
   );
 }

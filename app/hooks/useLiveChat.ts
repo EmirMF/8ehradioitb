@@ -1,7 +1,3 @@
-// ==============================================
-// File: lib/hooks/useLiveChat.ts
-// Tujuan: Hook untuk koneksi real-time ke server
-// ==============================================
 
 'use client';
 // ↑ Baris ini WAJIB ada di Next.js App Router

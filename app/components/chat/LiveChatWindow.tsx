@@ -46,11 +46,10 @@ export default function LiveChatWindow({ messages, currentUserName }: LiveChatWi
                   : 'bg-slate-700 text-slate-100 rounded-bl-sm'
               }`}
             >
-              {!isOwnMessage && (
-                <p className="text-xs font-semibold text-indigo-400 mb-1">
-                  {msg.senderName}
-                </p>
-              )}
+             <p className="text-xs font-semibold text-indigo-400 mb-1">
+  {msg.senderName}
+  
+  </p>
               
               <p className="text-sm leading-relaxed break-words">{msg.text}</p>
               
