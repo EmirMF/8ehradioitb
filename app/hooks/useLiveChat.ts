@@ -1,88 +1,94 @@
-
 'use client';
-// ↑ Baris ini WAJIB ada di Next.js App Router
-//   karena kode ini berjalan di browser (client), bukan di server.
 
 import { useState, useEffect, useCallback } from 'react';
-// ↑ Kita import 3 "alat" dari React:
-//   - useState    = untuk menyimpan data (seperti variabel yang bisa berubah)
-//   - useEffect   = untuk menjalankan kode saat komponen pertama kali muncul
-//   - useCallback = untuk membuat fungsi yang efisien (tidak dibuat ulang tiap render)
-
-// ---- DEFINISI TIPE DATA ----
-// Ini menjelaskan "bentuk" sebuah pesan chat.
-// Bayangkan ini seperti template formulir: setiap pesan HARUS punya field ini.
 
 export interface ChatMessage {
-  id: string;            // ID unik untuk setiap pesan (seperti nomor urut)
-  senderName: string;    // Nama pengirim (misal: "Andi")
-  text: string;          // Isi pesan (misal: "Halo semua!")
-  timestamp: Date;       // Waktu pesan dikirim
+  id: string;
+  senderName: string;
+  text: string;
+  timestamp: Date;
 }
 
-// ---- HOOK UTAMA ----
+export interface ActiveGuest {
+  sessionId: string;
+  name: string;
+}
+
 export function useLiveChat() {
-  // Buat "kotak penyimpanan" untuk daftar pesan
-  // messages = isi kotak saat ini
-  // setMessages = fungsi untuk mengubah isi kotak
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-
-  // Buat "kotak penyimpanan" untuk status koneksi
   const [isConnected, setIsConnected] = useState(false);
+  const [sessionId, setSessionId] = useState<string>('');
+  
+  // States untuk Admin / Moderasi
+  const [activeListeners, setActiveListeners] = useState<number>(0);
+  const [activeGuests, setActiveGuests] = useState<ActiveGuest[]>([]);
 
-  // ---- KONEKSI KE SERVER (SSE) ----
-  // useEffect ini akan berjalan SEKALI saat komponen pertama kali muncul di layar
   useEffect(() => {
-    // Buat koneksi SSE ke endpoint API backend
-    // (endpoint ini harus sudah disiapkan oleh tim backend)
-    const eventSource = new EventSource('/api/chat/stream');
-    // ↑ EventSource adalah fitur bawaan browser untuk menerima data real-time
-    //   dari server. Seperti "memasang antena radio" ke server.
+    // Generate atau ambil session ID unik untuk user ini
+    let storedSessionId = localStorage.getItem('chat_session_id');
+    if (!storedSessionId) {
+      storedSessionId = crypto.randomUUID();
+      localStorage.setItem('chat_session_id', storedSessionId);
+    }
+    setSessionId(storedSessionId);
 
-    // Saat koneksi berhasil terbuka:
+    const userName = localStorage.getItem('guest_name') || 'Guest';
+    
+    // Hubungkan ke stream dengan menyertakan sessionId dan nama
+    const eventSource = new EventSource(`/api/chat/stream?sessionId=${storedSessionId}&name=${encodeURIComponent(userName)}`);
+
     eventSource.onopen = () => {
-      setIsConnected(true);  // Update status: "sudah tersambung"
-      console.log('✅ Terhubung ke server chat');
+      setIsConnected(true);
     };
 
-    // Saat ada pesan baru datang dari server:
     eventSource.onmessage = (event) => {
       try {
-        const newMessage: ChatMessage = JSON.parse(event.data);
-        // ↑ event.data berisi teks JSON dari server
-        //   JSON.parse mengubah teks itu jadi objek JavaScript
+        // Karena ada beberapa tipe event, kita parse dulu
+        const parsed = JSON.parse(event.data);
 
-        // Tambahkan pesan baru ke daftar pesan yang sudah ada
-        setMessages((prev) => [...prev, {
-          ...newMessage,
-          timestamp: new Date(newMessage.timestamp),
-        }]);
-        // ↑ prev = daftar pesan sebelumnya
-        //   [...prev, newMessage] = salin semua pesan lama + tambah yang baru
+        // Jika ini adalah event hapus pesan
+        if (parsed.type === 'delete_message') {
+          setMessages((prev) => prev.filter(m => m.id !== parsed.messageId));
+          return;
+        }
+
+        // Jika ini adalah event update sistem (jumlah user, dll)
+        if (parsed.type === 'system_event') {
+          setActiveListeners(parsed.activeListeners || 0);
+          setActiveGuests(parsed.activeGuests || []);
+          return;
+        }
+
+        // Jika ini adalah pesan biasa (format asli dari kode lama atau format type 'new_message')
+        const messageData = parsed.type === 'new_message' ? parsed.message : parsed;
+        
+        // Abaikan jika tidak ada text (misal event ping)
+        if (!messageData || !messageData.text) return;
+
+        const newMessage: ChatMessage = messageData;
+        setMessages((prev) => {
+          // Cegah duplikasi pesan
+          if (prev.some(m => m.id === newMessage.id)) return prev;
+          return [...prev, {
+            ...newMessage,
+            timestamp: new Date(newMessage.timestamp),
+          }];
+        });
       } catch (error) {
-        console.error('Gagal memproses pesan:', error);
+        console.error('Gagal memproses event:', error);
       }
     };
 
-    // Saat terjadi error pada koneksi:
     eventSource.onerror = () => {
-      setIsConnected(false);  // Update status: "terputus"
-      console.log('❌ Koneksi terputus, mencoba menghubungkan kembali...');
-      // EventSource akan otomatis mencoba reconnect
+      setIsConnected(false);
     };
 
-    // ---- CLEANUP (Bersih-bersih) ----
-    // Ini berjalan saat komponen dihapus dari layar (misal: user pindah halaman)
     return () => {
-      eventSource.close();  // Tutup koneksi supaya tidak bocor
-      console.log('🔌 Koneksi ditutup');
+      eventSource.close();
     };
   }, []);
-  // ↑ [] artinya: effect ini HANYA berjalan sekali (saat pertama kali muncul)
 
-  // ---- FUNGSI KIRIM PESAN ----
   const sendMessage = useCallback(async (text: string, senderName: string) => {
-    // Kirim pesan ke server melalui HTTP POST
     try {
       const response = await fetch('/api/chat/send', {
         method: 'POST',
@@ -90,25 +96,54 @@ export function useLiveChat() {
         body: JSON.stringify({
           text: text,
           senderName: senderName,
+          sessionId: sessionId,
         }),
       });
-      // ↑ fetch = fungsi bawaan browser untuk mengirim request ke server
-      //   method: 'POST' = kita MENGIRIM data (bukan meminta data)
-      //   body = data yang kita kirim (diubah ke format JSON dulu)
 
       if (!response.ok) {
-        console.error('Gagal mengirim pesan');
+        const errorData = await response.json();
+        alert(errorData.error || 'Gagal mengirim pesan');
       }
     } catch (error) {
       console.error('Error saat mengirim pesan:', error);
     }
+  }, [sessionId]);
+
+  // Fungsi khusus Admin untuk menghapus pesan
+  const deleteMessage = useCallback(async (messageId: string) => {
+    try {
+      await fetch(`/api/chat/delete?id=${messageId}`, {
+        method: 'DELETE',
+      });
+    } catch (error) {
+      console.error('Gagal menghapus pesan', error);
+    }
   }, []);
 
-  // ---- KEMBALIKAN DATA & FUNGSI ----
-  // Komponen yang menggunakan hook ini akan mendapat:
+  // Fungsi khusus Admin untuk membisukan (mute) user
+  const muteGuest = useCallback(async (targetSessionId: string, action: 'mute' | 'unmute') => {
+    try {
+      await fetch('/api/chat/mute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: targetSessionId,
+          action: action
+        }),
+      });
+      alert(`User berhasil di-${action}`);
+    } catch (error) {
+      console.error('Gagal mengubah status mute', error);
+    }
+  }, []);
+
   return {
-    messages,      // Daftar semua pesan (untuk ditampilkan)
-    isConnected,   // Status koneksi (untuk indikator online/offline)
-    sendMessage,   // Fungsi untuk mengirim pesan baru
+    messages,
+    isConnected,
+    sendMessage,
+    activeListeners,
+    activeGuests,
+    deleteMessage,
+    muteGuest
   };
 }

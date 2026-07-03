@@ -43,13 +43,13 @@ export default function ChatInputBox({ onSendMessage, disabled = false }: ChatIn
           onKeyDown={handleKeyDown}
           placeholder={disabled ? 'Masukkan nama dulu...' : 'Ketik pesan...'}
           disabled={disabled}
-          className="flex-1 rounded-full border border-white/10 bg-slate-700/50 px-5 py-3 text-sm text-white placeholder-slate-500 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 rounded-full border border-white/10 bg-slate-700/50 px-5 py-3 text-sm text-white placeholder-slate-500 outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         />
 
         <button
           onClick={handleSend}
           disabled={disabled || !text.trim()}
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-indigo-600 text-white transition-all hover:bg-indigo-500 hover:shadow-lg hover:shadow-indigo-500/30 active:scale-90 disabled:opacity-40 disabled:hover:bg-indigo-600 disabled:hover:shadow-none"
+          className="flex h-11 w-11 items-center justify-center rounded-full bg-red-600 text-white transition-all hover:bg-red-500 hover:shadow-lg hover:shadow-red-500/30 active:scale-90 disabled:opacity-40 disabled:hover:bg-red-600 disabled:hover:shadow-none"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"

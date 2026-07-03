@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { clients, messages } from '@/lib/chat/store';
+import { mutedSessions, messages, broadcast } from '@/lib/chat/store';
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { text, senderName } = body;
+  const { text, senderName, sessionId } = body;
 
-  if (!text || !senderName) {
-    return NextResponse.json({ error: 'text dan senderName wajib diisi' }, { status: 400 });
+  if (!text || !senderName || !sessionId) {
+    return NextResponse.json({ error: 'text, senderName, dan sessionId wajib diisi' }, { status: 400 });
+  }
+
+  // Cek apakah user sedang dimute
+  if (mutedSessions.has(sessionId)) {
+    return NextResponse.json({ error: 'Anda telah dibisukan oleh admin.' }, { status: 403 });
   }
 
   const message = {
@@ -18,13 +23,9 @@ export async function POST(request: NextRequest) {
 
   messages.push(message);
 
-  const data = `data: ${JSON.stringify(message)}\n\n`;
-  clients.forEach((controller) => {
-    try {
-      controller.enqueue(new TextEncoder().encode(data));
-    } catch {
-      clients.delete(controller);
-    }
+  broadcast({
+    type: 'new_message',
+    message: message
   });
 
   return NextResponse.json({ success: true, message });

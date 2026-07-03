@@ -5,6 +5,7 @@ import Image from "next/image";
 import GuestNameModal from "@/app/components/chat/GuestNameModal";
 import LiveChatWindow from "@/app/components/chat/LiveChatWindow";
 import ChatInputBox from "@/app/components/chat/ChatInputBox";
+import ModerationPanel from "@/app/components/chat/ModerationPanel";
 import { useLiveChat } from "@/app/hooks/useLiveChat";
 
 const GlobalAudioPlayer = () => {
@@ -15,13 +16,23 @@ const GlobalAudioPlayer = () => {
   const [isMuted, setIsMuted] = useState(false);
   const [showLiveChat, setShowLiveChat] = useState(false);
   const [guestName, setGuestName] = useState(null);
+  
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isModerationPanelOpen, setIsModerationPanelOpen] = useState(false);
 
   useEffect(() => {
     const savedName = localStorage.getItem("guest_name");
     if (savedName) setGuestName(savedName);
+    
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('admin') === 'true') {
+        setIsAdmin(true);
+      }
+    }
   }, []);
 
-  const { messages, sendMessage } = useLiveChat();
+  const { messages, sendMessage, activeListeners, activeGuests, deleteMessage, muteGuest } = useLiveChat();
 
   // DEBUG - hapus setelah chat berfungsi
   useEffect(() => {
@@ -143,28 +154,59 @@ const GlobalAudioPlayer = () => {
       {isVisible && (
         <div className="fixed bottom-0 left-0 right-0 z-50">
           {showLiveChat && (
-            <div className="absolute bottom-full right-2 md:right-60 mb-2 w-[340px] md:w-[380px] h-[440px] bg-white border border-gray-200 rounded-lg shadow-2xl flex flex-col overflow-hidden">
+            <div className="absolute bottom-full right-2 left-2 md:left-auto md:right-60 mb-2 md:w-[380px] h-[65vh] md:h-[440px] max-h-[500px] bg-white border border-gray-200 rounded-lg shadow-2xl flex flex-col overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 flex-shrink-0">
-                <p className="font-heading font-bold text-gray-800 text-sm">
-                  Live Chat
-                </p>
-                <button
-                  onClick={toggleLiveChat}
-                  className="text-gray-400 hover:text-gray-700 transition-colors"
-                  aria-label="Tutup live chat"
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-                    <path d="M18 6L6 18M6 6l12 12" />
-                  </svg>
-                </button>
+                <div className="flex items-center gap-2">
+                  <p className="font-heading font-bold text-gray-800 text-sm">
+                    Live Chat
+                  </p>
+                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+                    {activeListeners}
+                  </span>
+                  {isAdmin && <span className="text-[10px] bg-red-500/10 text-red-600 px-2 py-0.5 rounded-md font-bold">ADMIN</span>}
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  {isAdmin && (
+                    <button
+                      onClick={() => setIsModerationPanelOpen(true)}
+                      className="text-[10px] bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded-md transition-colors"
+                    >
+                      🛡️ Moderasi
+                    </button>
+                  )}
+                  <button
+                    onClick={toggleLiveChat}
+                    className="text-gray-400 hover:text-gray-700 transition-colors"
+                    aria-label="Tutup live chat"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                      <path d="M18 6L6 18M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
               </div>
 
               <div className="flex-1 flex flex-col overflow-hidden relative">
+                {isAdmin && isModerationPanelOpen && (
+                  <ModerationPanel 
+                    activeGuests={activeGuests} 
+                    onMuteGuest={muteGuest} 
+                    onClose={() => setIsModerationPanelOpen(false)} 
+                  />
+                )}
+                
                 {!guestName ? (
                   <GuestNameModal onSaveName={handleNameSubmit} />
                 ) : (
                   <>
-                    <LiveChatWindow messages={messages} currentUserName={guestName} />
+                    <LiveChatWindow 
+                      messages={messages} 
+                      currentUserName={guestName} 
+                      isAdmin={isAdmin}
+                      onDeleteMessage={deleteMessage}
+                    />
                     <ChatInputBox onSendMessage={handleSendMessage} />
                   </>
                 )}
@@ -185,7 +227,7 @@ const GlobalAudioPlayer = () => {
                 <div className="w-10 h-10 md:w-14 md:h-14 bg-gray-200 rounded-md relative overflow-hidden shadow-sm flex-shrink-0">
                   <img src={playerConfig.coverImage || "/8eh.png"} alt="cover" className="object-cover w-full h-full absolute inset-0" />
                 </div>
-                <div className="text-sm min-w-0 w-48 md:w-60 flex-shrink-0">
+                <div className="text-sm min-w-0 flex-1 md:w-60 flex-shrink-0">
                   <p className="font-heading font-bold text-gray-800 truncate text-xs md:text-sm">{playerConfig.title || "8EH Radio ITB"}</p>
                   <p className="text-gray-500 flex items-center gap-2 font-body text-xs md:text-sm">
                     <span className="relative flex h-1.5 w-1.5 md:h-2 md:w-2">
@@ -195,6 +237,13 @@ const GlobalAudioPlayer = () => {
                     Live Now
                   </p>
                 </div>
+                
+                {/* Mobile Chat Button */}
+                <button type="button" onClick={toggleLiveChat} className={`md:hidden w-9 h-9 rounded-full flex items-center justify-center transition-all flex-shrink-0 ${showLiveChat ? "bg-gray-900 text-white" : "ring-1 ring-gray-300 hover:ring-gray-900 text-gray-700"}`} aria-label="Buka live chat">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-4.5 h-4.5">
+                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+                  </svg>
+                </button>
               </div>
 
               <div className="hidden md:flex flex-1 flex-col items-center justify-center mx-2 min-w-0">
