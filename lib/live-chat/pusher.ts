@@ -4,7 +4,8 @@ import {
   MessageDeletedEvent,
   GuestMutedEvent,
   RoomStatusEvent,
-} from "@/types/chat";
+  LiveStatusEvent,
+} from "@/lib/live-chat/chat";
 
 /**
  * Server-side Pusher client. Hanya dipanggil dari route handler (server),
@@ -44,4 +45,21 @@ export async function broadcastGuestMuted(roomId: string, payload: GuestMutedEve
 
 export async function broadcastRoomStatus(roomId: string, payload: RoomStatusEvent) {
   await pusherServer.trigger(chatRoomChannel(roomId), "room-status", payload);
+}
+
+/**
+ * Channel global untuk status siaran — dipakai client yang belum tahu roomId
+ * (misal lagi di halaman tunggu sebelum siaran mulai).
+ *
+ * Client subscribe:
+ *   const channel = pusher.subscribe("live-status");
+ *   channel.bind("live-started", ({ roomId }) => { ... }); // siaran mulai
+ *   channel.bind("live-ended",   ({ roomId }) => { ... }); // siaran selesai
+ *
+ * Dipanggil dari: POST /api/stream-config (lihat instruksi di STREAM_CONFIG_PATCH.md)
+ */
+export const LIVE_STATUS_CHANNEL = "live-status";
+
+export async function broadcastLiveStatus(payload: LiveStatusEvent) {
+  await pusherServer.trigger(LIVE_STATUS_CHANNEL, payload.isLive ? "live-started" : "live-ended", payload);
 }

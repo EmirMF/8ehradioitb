@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireGuestSession } from "@/lib/auth";
-import { sanitizeMessageText } from "@/lib/validate";
-import { checkRateLimit } from "@/lib/rate-limit";
-import { broadcastNewMessage } from "@/lib/pusher";
-import { getActiveRoomOrNull } from "@/lib/room";
+import { requireGuestSession } from "@/lib/live-chat/auth";
+import { sanitizeMessageText } from "@/lib/live-chat/validate";
+import { checkRateLimit } from "@/lib/live-chat/rate-limit";
+import { broadcastNewMessage } from "@/lib/live-chat/pusher";
+import { getActiveRoomOrNull } from "@/lib/live-chat/room";
 
 interface RouteParams {
   params: Promise<{ roomId: string }>;
@@ -26,9 +26,10 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
   const sessionCheck = await requireGuestSession();
   if (!sessionCheck.ok) {
+    const reason = (sessionCheck as { ok: false; reason: string }).reason;
     return NextResponse.json(
-      { error: "Sesi guest tidak valid", reason: sessionCheck.reason },
-      { status: sessionCheck.reason === "muted" ? 403 : 401 }
+      { error: "Sesi guest tidak valid", reason },
+      { status: reason === "muted" ? 403 : 401 }
     );
   }
 
@@ -83,16 +84,17 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
   const sessionCheck = await requireGuestSession();
   if (!sessionCheck.ok) {
-    const status = sessionCheck.reason === "muted" ? 403 : 401;
+    const reason = (sessionCheck as { ok: false; reason: string }).reason;
+    const status = reason === "muted" ? 403 : 401;
     return NextResponse.json(
       {
         error:
-          sessionCheck.reason === "expired"
+          reason === "expired"
             ? "Sesi sudah expired, silakan masukkan nama panggilan lagi"
-            : sessionCheck.reason === "muted"
+            : reason === "muted"
             ? "Anda sedang di-mute oleh admin"
             : "Sesi guest tidak ditemukan, silakan masukkan nama panggilan",
-        reason: sessionCheck.reason,
+        reason,
       },
       { status }
     );

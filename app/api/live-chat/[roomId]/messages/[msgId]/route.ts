@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { ObjectId } from "bson";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin } from "@/lib/auth";
-import { broadcastMessageDeleted } from "@/lib/pusher";
+import { requireAdmin } from "@/lib/live-chat/auth";
+import { broadcastMessageDeleted } from "@/lib/live-chat/pusher";
 
 interface RouteParams {
   params: Promise<{ roomId: string; msgId: string }>;
@@ -19,9 +19,10 @@ interface RouteParams {
 export async function DELETE(_req: Request, { params }: RouteParams) {
   const adminCheck = await requireAdmin();
   if (!adminCheck.ok) {
+    const reason = (adminCheck as { ok: false; reason: string }).reason;
     return NextResponse.json(
       { error: "Akses ditolak, hanya admin" },
-      { status: adminCheck.reason === "no_session" ? 401 : 403 }
+      { status: reason === "no_session" ? 401 : 403 }
     );
   }
   const { admin } = adminCheck;

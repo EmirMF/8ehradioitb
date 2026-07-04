@@ -32,3 +32,8 @@ export interface RoomStatusEvent {
   roomId: string;
   isActive: boolean;
 }
+
+export interface LiveStatusEvent {
+  isLive: boolean;
+  roomId: string | null; // null kalau live-ended dan room sudah tidak ada
+}

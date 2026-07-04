@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { hasAnyRole } from "@/lib/roleUtils";
+import { broadcastLiveStatus } from "@/lib/live-chat/pusher";
+import { getOrSyncActiveRoom } from "@/lib/live-chat/room";
 
 function isAdmin(roleString) {
   return hasAnyRole(roleString, ["DEVELOPER", "TECHNIC"]);
@@ -30,5 +32,17 @@ export async function POST(req) {
       data: { baseUrls, defaultUrl, fallbackUrl, onAir },
     });
   }
+
+  // Notify semua client via Pusher saat onAir berubah.
+  // getOrSyncActiveRoom() sekaligus lazy-create/close ChatRoom sesuai onAir baru,
+  // sehingga roomId yang dikirim ke client sudah valid dan siap dipakai.
+  if (typeof onAir === "boolean") {
+    const activeRoom = await getOrSyncActiveRoom();
+    await broadcastLiveStatus({
+      isLive: !!onAir,
+      roomId: activeRoom?.id ?? null,
+    });
+  }
+
   return NextResponse.json(config);
-} 
+}
