@@ -173,7 +173,7 @@ const GlobalAudioPlayer = () => {
                       onClick={() => setIsModerationPanelOpen(true)}
                       className="text-[10px] bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded-md transition-colors"
                     >
-                      🛡️ Moderasi
+                      Moderasi
                     </button>
                   )}
                   <button
