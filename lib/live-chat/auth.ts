@@ -108,6 +108,14 @@ export type GuestSessionCheckResult =
   | { ok: true; session: GuestSession }
   | { ok: false; reason: "no_cookie" | "not_found" | "expired" | "muted" };
 
+// Helper dengan as const eksplisit — tanpa ini TypeScript kadang gagal
+// narrow discriminated union setelah await, khususnya dengan tipe Prisma
+// yang di-generate dari MongoDB provider.
+const _ok = (session: GuestSession): GuestSessionCheckResult =>
+  ({ ok: true as const, session });
+const _err = (reason: "no_cookie" | "not_found" | "expired" | "muted"): GuestSessionCheckResult =>
+  ({ ok: false as const, reason });
+
 /**
  * Validasi sesi guest dari cookie request saat ini.
  *
@@ -123,26 +131,37 @@ export type GuestSessionCheckResult =
  */
 export async function requireGuestSession(): Promise<GuestSessionCheckResult> {
   const sessionId = await getSessionIdFromCookie();
-  if (!sessionId) return { ok: false, reason: "no_cookie" };
+  if (!sessionId) return _err("no_cookie");
 
   const session = await prisma.guestSession.findUnique({ where: { sessionId } });
-  if (!session) return { ok: false, reason: "not_found" };
+  if (!session) return _err("not_found");
 
   if (session.expiresAt.getTime() < Date.now()) {
-    return { ok: false, reason: "expired" };
+    return _err("expired");
   }
 
   if (session.isMuted) {
-    return { ok: false, reason: "muted" };
+    return _err("muted");
   }
 
-  return { ok: true, session };
+  return _ok(session);
 }
 
 /* ------------------------------------------------------------------ */
 /*  ADMIN AUTH — NextAuth getServerSession + role check                */
 /* ------------------------------------------------------------------ */
 
+/**
+ * ASUMSI yang belum saya verifikasi langsung (saya tidak punya isi
+ * lib/roleUtils.ts) — TOLONG KONFIRMASI:
+ * 1. `hasAnyRole(roleString: string, allowedRoles: string[]): boolean`
+ *    — signature ini saya ambil dari contoh pakai di /api/stream-config:
+ *      hasAnyRole(session.user.role, ["DEVELOPER", "TECHNIC"])
+ * 2. Role apa saja yang dianggap "admin" untuk moderasi live-chat
+ *    (hapus pesan, mute guest, dll) — saya pakai ["DEVELOPER", "TECHNIC"]
+ *    sama seperti stream-config sebagai default. GANTI kalau moderasi chat
+ *    harusnya boleh diakses role lain juga (misal REPORTER atau KRU).
+ */
 const LIVE_CHAT_ADMIN_ROLES = ["DEVELOPER", "TECHNIC"];
 
 export interface AdminIdentity {
@@ -154,24 +173,26 @@ export type AdminCheckResult =
   | { ok: true; admin: AdminIdentity }
   | { ok: false; reason: "no_session" | "not_admin" };
 
+const _adminOk = (admin: AdminIdentity): AdminCheckResult =>
+  ({ ok: true as const, admin });
+const _adminErr = (reason: "no_session" | "not_admin"): AdminCheckResult =>
+  ({ ok: false as const, reason });
+
 export async function requireAdmin(): Promise<AdminCheckResult> {
   const session = await getServerSession(authOptions);
 
   if (!session?.user) {
-    return { ok: false, reason: "no_session" };
+    return _adminErr("no_session");
   }
 
   const user = session.user as SessionUserWithRole;
 
   if (!hasAnyRole(user.role ?? "", LIVE_CHAT_ADMIN_ROLES)) {
-    return { ok: false, reason: "not_admin" };
+    return _adminErr("not_admin");
   }
 
-  return {
-    ok: true,
-    admin: {
-      adminId: user.id ?? user.email ?? "unknown",
-      adminName: user.name,
-    },
-  };
+  return _adminOk({
+    adminId: user.id ?? user.email ?? "unknown",
+    adminName: user.name,
+  });
 }

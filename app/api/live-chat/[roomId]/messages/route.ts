@@ -26,9 +26,10 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
   const sessionCheck = await requireGuestSession();
   if (!sessionCheck.ok) {
+    const reason = (sessionCheck as { ok: false; reason: string }).reason;
     return NextResponse.json(
-      { error: "Sesi guest tidak valid", reason: sessionCheck.reason },
-      { status: sessionCheck.reason === "muted" ? 403 : 401 }
+      { error: "Sesi guest tidak valid", reason },
+      { status: reason === "muted" ? 403 : 401 }
     );
   }
 
@@ -83,16 +84,17 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
   const sessionCheck = await requireGuestSession();
   if (!sessionCheck.ok) {
-    const status = sessionCheck.reason === "muted" ? 403 : 401;
+    const reason = (sessionCheck as { ok: false; reason: string }).reason;
+    const status = reason === "muted" ? 403 : 401;
     return NextResponse.json(
       {
         error:
-          sessionCheck.reason === "expired"
+          reason === "expired"
             ? "Sesi sudah expired, silakan masukkan nama panggilan lagi"
-            : sessionCheck.reason === "muted"
+            : reason === "muted"
             ? "Anda sedang di-mute oleh admin"
             : "Sesi guest tidak ditemukan, silakan masukkan nama panggilan",
-        reason: sessionCheck.reason,
+        reason,
       },
       { status }
     );

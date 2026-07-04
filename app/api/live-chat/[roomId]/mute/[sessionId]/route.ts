@@ -24,9 +24,10 @@ interface RouteParams {
 export async function POST(_req: Request, { params }: RouteParams) {
   const adminCheck = await requireAdmin();
   if (!adminCheck.ok) {
+    const reason = (adminCheck as { ok: false; reason: string }).reason;
     return NextResponse.json(
       { error: "Akses ditolak, hanya admin" },
-      { status: adminCheck.reason === "no_session" ? 401 : 403 }
+      { status: reason === "no_session" ? 401 : 403 }
     );
   }
   const { admin } = adminCheck;
@@ -75,9 +76,10 @@ export async function POST(_req: Request, { params }: RouteParams) {
 export async function DELETE(_req: Request, { params }: RouteParams) {
   const adminCheck = await requireAdmin();
   if (!adminCheck.ok) {
+    const reason = (adminCheck as { ok: false; reason: string }).reason;
     return NextResponse.json(
       { error: "Akses ditolak, hanya admin" },
-      { status: adminCheck.reason === "no_session" ? 401 : 403 }
+      { status: reason === "no_session" ? 401 : 403 }
     );
   }
 
