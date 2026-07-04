@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getOrSyncActiveRoom } from "@/lib/room";
+import { getOrSyncActiveRoom } from "@/lib/live-chat/room";
 
 /**
  * GET /api/live-chat/active-room

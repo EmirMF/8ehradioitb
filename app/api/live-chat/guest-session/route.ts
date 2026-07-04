@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { setGuestSessionCookie, getSessionIdFromCookie } from "@/lib/auth";
-import { sanitizeNickname } from "@/lib/validate";
-import { getOrSyncActiveRoom } from "@/lib/room";
+import { setGuestSessionCookie, getSessionIdFromCookie } from "@/lib/live-chat/auth";
+import { sanitizeNickname } from "@/lib/live-chat/validate";
+import { getOrSyncActiveRoom } from "@/lib/live-chat/room";
 
 /**
  * POST /api/live-chat/guest-session

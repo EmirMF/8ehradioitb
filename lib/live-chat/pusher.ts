@@ -4,7 +4,7 @@ import {
   MessageDeletedEvent,
   GuestMutedEvent,
   RoomStatusEvent,
-} from "@/types/chat";
+} from "@/lib/live-chat/chat";
 
 /**
  * Server-side Pusher client. Hanya dipanggil dari route handler (server),

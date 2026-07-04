@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireGuestSession } from "@/lib/auth";
-import { sanitizeMessageText } from "@/lib/validate";
-import { checkRateLimit } from "@/lib/rate-limit";
-import { broadcastNewMessage } from "@/lib/pusher";
-import { getActiveRoomOrNull } from "@/lib/room";
+import { requireGuestSession } from "@/lib/live-chat/auth";
+import { sanitizeMessageText } from "@/lib/live-chat/validate";
+import { checkRateLimit } from "@/lib/live-chat/rate-limit";
+import { broadcastNewMessage } from "@/lib/live-chat/pusher";
+import { getActiveRoomOrNull } from "@/lib/live-chat/room";
 
 interface RouteParams {
   params: Promise<{ roomId: string }>;

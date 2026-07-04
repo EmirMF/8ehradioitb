@@ -143,17 +143,6 @@ export async function requireGuestSession(): Promise<GuestSessionCheckResult> {
 /*  ADMIN AUTH — NextAuth getServerSession + role check                */
 /* ------------------------------------------------------------------ */
 
-/**
- * ASUMSI yang belum saya verifikasi langsung (saya tidak punya isi
- * lib/roleUtils.ts) — TOLONG KONFIRMASI:
- * 1. `hasAnyRole(roleString: string, allowedRoles: string[]): boolean`
- *    — signature ini saya ambil dari contoh pakai di /api/stream-config:
- *      hasAnyRole(session.user.role, ["DEVELOPER", "TECHNIC"])
- * 2. Role apa saja yang dianggap "admin" untuk moderasi live-chat
- *    (hapus pesan, mute guest, dll) — saya pakai ["DEVELOPER", "TECHNIC"]
- *    sama seperti stream-config sebagai default. GANTI kalau moderasi chat
- *    harusnya boleh diakses role lain juga (misal REPORTER atau KRU).
- */
 const LIVE_CHAT_ADMIN_ROLES = ["DEVELOPER", "TECHNIC"];
 
 export interface AdminIdentity {
@@ -172,8 +161,6 @@ export async function requireAdmin(): Promise<AdminCheckResult> {
     return { ok: false, reason: "no_session" };
   }
 
-  // Cast lokal ke tipe yang punya `role` & `id` — lihat komentar
-  // SessionUserWithRole di atas untuk alasan kenapa cast ini diperlukan.
   const user = session.user as SessionUserWithRole;
 
   if (!hasAnyRole(user.role ?? "", LIVE_CHAT_ADMIN_ROLES)) {

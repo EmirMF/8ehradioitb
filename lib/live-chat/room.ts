@@ -1,6 +1,6 @@
 import { ObjectId } from "bson";
 import { prisma } from "@/lib/prisma";
-import { broadcastRoomStatus } from "@/lib/pusher";
+import { broadcastRoomStatus } from "@/lib/live-chat/pusher";
 import type { ChatRoom } from "@prisma/client";
 
 /**

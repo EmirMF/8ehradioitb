@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { ObjectId } from "bson";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin } from "@/lib/auth";
-import { broadcastMessageDeleted } from "@/lib/pusher";
+import { requireAdmin } from "@/lib/live-chat/auth";
+import { broadcastMessageDeleted } from "@/lib/live-chat/pusher";
 
 interface RouteParams {
   params: Promise<{ roomId: string; msgId: string }>;
