@@ -12,6 +12,7 @@ export interface ChatMessage {
 export interface ActiveGuest {
   sessionId: string;
   name: string;
+  isMuted: boolean; 
 }
 
 export function useLiveChat() {

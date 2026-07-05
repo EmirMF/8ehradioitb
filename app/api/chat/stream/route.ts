@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { clients, sessions, broadcast } from '@/lib/chat/store';
+import { clients, sessions, mutedSessions, broadcast } from '@/lib/chat/store';
 
 function broadcastActiveGuests() {
   const activeGuests = Array.from(sessions.values()).map(s => ({
     sessionId: s.sessionId,
-    name: s.name
+    name: s.name,
+    isMuted: mutedSessions.has(s.sessionId), // ← tambahkan ini
   }));
   
-  // Remove duplicates based on sessionId (if same user has multiple tabs)
   const uniqueGuests = Array.from(new Map(activeGuests.map(item => [item.sessionId, item])).values());
   
   broadcast({

@@ -47,16 +47,28 @@ export default function ModerationPanel({ activeGuests, onMuteGuest, onClose }: 
                 <p className="text-[10px] text-gray-400 truncate" title={guest.sessionId}>
                   {guest.sessionId.slice(0, 8)}...
                 </p>
+                {guest.isMuted && (
+                  <span className="text-[10px] text-red-500 font-medium">🔇 Muted</span>
+                )}
               </div>
-              <button
-                onClick={() => {
-                  const action = confirm(`Mute ${guest.name}?`) ? 'mute' : null;
-                  if (action) onMuteGuest(guest.sessionId, action);
-                }}
-                className="px-3 py-1 bg-red-50 text-red-600 hover:bg-red-100 text-xs font-medium rounded-md transition-colors whitespace-nowrap border border-red-200"
-              >
-                Mute
-              </button>
+
+              {guest.isMuted ? (
+                <button
+                  onClick={() => onMuteGuest(guest.sessionId, 'unmute')}
+                  className="px-3 py-1 bg-green-50 text-green-600 hover:bg-green-100 text-xs font-medium rounded-md transition-colors whitespace-nowrap border border-green-200"
+                >
+                  Unmute
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    if (confirm(`Mute ${guest.name}?`)) onMuteGuest(guest.sessionId, 'mute');
+                  }}
+                  className="px-3 py-1 bg-red-50 text-red-600 hover:bg-red-100 text-xs font-medium rounded-md transition-colors whitespace-nowrap border border-red-200"
+                >
+                  Mute
+                </button>
+              )}
             </div>
           ))
         )}
