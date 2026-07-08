@@ -40,16 +40,60 @@ export default async function Home() {
     prisma.podcast.findMany({
       take: 2,
       orderBy: { createdAt: "desc" },
-      include: { author: true },
+      select: {
+        id: true,
+        title: true,
+        subtitle: true,
+        description: true,
+        date: true,
+        duration: true,
+        audioUrl: true,
+        image: true,
+        coverImage: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     }),
     prisma.blogPost.findMany({
       take: 3,
       orderBy: { createdAt: "desc" },
-      include: { authors: { include: { user: true } } },
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        description: true,
+        readTime: true,
+        category: true,
+        mainImage: true,
+        createdAt: true,
+        updatedAt: true,
+        authors: {
+          select: {
+            id: true,
+            user: {
+              select: {
+                id: true,
+                name: true,
+                image: true,
+              },
+            },
+          },
+        },
+      },
     }),
     prisma.tuneTrackerEntry.findMany({
       take: 10,
       orderBy: { order: "asc" },
+      select: {
+        id: true,
+        order: true,
+        title: true,
+        artist: true,
+        coverImage: true,
+        audioUrl: true,
+        itunesPreviewUrl: true,
+        updatedAt: true,
+      },
     }),
     prisma.tuneTrackerMeta.findFirst(),
   ]);
@@ -59,15 +103,6 @@ export default async function Home() {
     ...p,
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),
-    author: p.author
-      ? {
-          ...p.author,
-          createdAt: p.author.createdAt.toISOString(),
-          emailVerified: p.author.emailVerified
-            ? p.author.emailVerified.toISOString()
-            : null,
-        }
-      : null,
   }));
 
   const serializedNews = newsItems.map((n) => ({
@@ -76,13 +111,6 @@ export default async function Home() {
     updatedAt: n.updatedAt.toISOString(),
     authors: n.authors.map((a) => ({
       ...a,
-      user: {
-        ...a.user,
-        createdAt: a.user.createdAt.toISOString(),
-        emailVerified: a.user.emailVerified
-          ? a.user.emailVerified.toISOString()
-          : null,
-      },
     })),
   }));
 
