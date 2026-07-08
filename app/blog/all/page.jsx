@@ -19,7 +19,14 @@ export const metadata = {
       "Jelajahi semua artikel dan cerita dari 8EH Radio ITB. Temukan konten terbaru seputar kampus, musik, podcast, dan edutainment.",
     url: "https://8ehradioitb.com/blog/all",
     type: "website",
-    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Semua Artikel 8EH Radio ITB" }],
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Semua Artikel 8EH Radio ITB",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
@@ -37,9 +44,10 @@ const BlogCard = ({ article }) => (
       <Image
         src={article.mainImage || "/og-image.png"}
         alt={article.title}
-        layout="fill"
-        objectFit="cover"
-        className="transition-transform duration-300 group-hover:scale-105"
+        fill
+        sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
+        quality={65}
+        className="object-cover transition-transform duration-300 group-hover:scale-105"
       />
     </div>
     <p className="font-body text-sm text-red-600 mb-1 font-medium">
@@ -90,9 +98,17 @@ async function getPaginatedPosts(page = 1) {
     orderBy: {
       createdAt: "desc",
     },
-    include: {
+    select: {
+      id: true,
+      title: true,
+      slug: true,
+      description: true,
+      readTime: true,
+      category: true,
+      mainImage: true,
+      createdAt: true,
       authors: {
-        include: {
+        select: {
           user: {
             select: {
               name: true,

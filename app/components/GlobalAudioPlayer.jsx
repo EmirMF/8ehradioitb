@@ -178,10 +178,13 @@ const GlobalAudioPlayer = () => {
                   )}
                 </button>
                 <div className="w-10 h-10 md:w-14 md:h-14 bg-gray-200 rounded-md relative overflow-hidden shadow-sm flex-shrink-0">
-                  <img
+                  <Image
                     src={playerConfig.coverImage || "/8eh.png"}
                     alt="cover"
-                    className="object-cover w-full h-full absolute inset-0"
+                    fill
+                    sizes="(min-width: 768px) 56px, 40px"
+                    quality={60}
+                    className="object-cover"
                   />
                 </div>
 

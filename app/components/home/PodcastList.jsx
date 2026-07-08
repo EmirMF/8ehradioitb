@@ -2,8 +2,13 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import ButtonPrimary from "@/app/components/ButtonPrimary";
-import PodcastAudioPlayer from "@/app/components/PodcastAudioPlayer";
+
+const PodcastAudioPlayer = dynamic(
+  () => import("@/app/components/PodcastAudioPlayer"),
+  { ssr: false },
+);
 
 export default function PodcastList({ podcasts = [] }) {
   const [currentPodcast, setCurrentPodcast] = useState(null);
@@ -54,10 +59,13 @@ export default function PodcastList({ podcasts = [] }) {
                 >
                   {/* Image */}
                   <div className="w-28 h-28 sm:w-32 sm:h-32 md:w-40 md:h-40 relative flex-shrink-0">
-                    <img
+                    <Image
                       src={pod.image || pod.coverImage || "/8eh-real.svg"}
                       alt="Podcast Thumbnail"
-                      className="object-cover rounded-2xl shadow-md w-full h-full"
+                      fill
+                      sizes="(min-width: 768px) 160px, (min-width: 640px) 128px, 112px"
+                      quality={65}
+                      className="object-cover rounded-2xl shadow-md"
                     />
                   </div>
                   {/* Details */}

@@ -153,7 +153,7 @@ export default function TuneTracker({ tunes = [], meta = null }) {
                   {String(idx + 1).padStart(2, "0")}
                 </div>
                 <div className="w-14 h-14 relative mx-4 rounded-full overflow-hidden flex-shrink-0 shadow-inner">
-                  <img
+                  <Image
                     src={
                       tune.coverImage
                         ? tune.coverImage.startsWith("http")
@@ -162,8 +162,10 @@ export default function TuneTracker({ tunes = [], meta = null }) {
                         : "/8eh-real.svg"
                     }
                     alt={tune.title || `Song ${idx + 1}`}
-                    className={`object-cover w-full h-full absolute inset-0 ${isPlaying ? "animate-[spin_3s_linear_infinite]" : ""}`}
-                    style={{ position: "absolute", inset: 0 }}
+                    fill
+                    sizes="56px"
+                    quality={55}
+                    className={`object-cover ${isPlaying ? "animate-[spin_3s_linear_infinite]" : ""}`}
                   />
                 </div>
                 <div className="flex-grow">
