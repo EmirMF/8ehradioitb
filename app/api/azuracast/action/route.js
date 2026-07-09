@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { hasAnyRole } from "@/lib/roleUtils";
+import { prisma } from "@/lib/prisma";
 import {
   getAzuraCastDashboardConfig,
   runAzuraCastAction,
@@ -31,6 +32,28 @@ function errorResponse(error) {
   );
 }
 
+async function ensureBroadcastServerRunning() {
+  const state = await prisma.broadcastServerState.findUnique({
+    where: { key: "main" },
+    select: { status: true, phase: true },
+  });
+
+  if (state?.status === "running") return;
+
+  const error = new Error(
+    "Broadcast Server is not running. Start Broadcast Server before controlling AzuraCast.",
+  );
+  error.status = 409;
+  error.code = "BROADCAST_SERVER_OFFLINE";
+  error.payload = {
+    broadcastServer: {
+      status: state?.status || "idle",
+      phase: state?.phase || "idle",
+    },
+  };
+  throw error;
+}
+
 export async function POST(req) {
   const session = await getServerSession(authOptions);
   if (!session || !canManage(session.user.role)) {
@@ -44,6 +67,8 @@ export async function POST(req) {
     if (!ACTIONS.has(action)) {
       return NextResponse.json({ error: "Invalid action" }, { status: 400 });
     }
+
+    await ensureBroadcastServerRunning();
 
     return NextResponse.json({
       config: getAzuraCastDashboardConfig(),

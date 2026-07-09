@@ -97,17 +97,33 @@ function StatCard({ label, value, description, icon: Icon }) {
   );
 }
 
-function ListenerChart({ data }) {
+function parseRangeDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function ListenerChart({ data, range }) {
   const [hoveredPoint, setHoveredPoint] = useState(null);
   const width = 720;
   const height = 220;
   const padding = 28;
+  const fromDate = parseRangeDate(range?.from);
+  const toDate = parseRangeDate(range?.to);
   const points = data
-    .filter((item) => typeof item.current === "number")
+    .filter((item) => {
+      if (typeof item.current !== "number") return false;
+      const date = new Date(item.createdAt);
+      if (Number.isNaN(date.getTime())) return false;
+      if (fromDate && date < fromDate) return false;
+      if (toDate && date > toDate) return false;
+      return true;
+    })
     .map((item) => ({
       value: item.current,
       date: new Date(item.createdAt),
-    }));
+    }))
+    .sort((a, b) => a.date.getTime() - b.date.getTime());
 
   if (points.length < 2) {
     return (
@@ -282,6 +298,9 @@ export default function AzuraCastDashboard() {
     session && hasAnyRole(session.user.role, ["DEVELOPER", "TECHNIC"]);
 
   const config = payload?.config || {};
+  const broadcastServer = payload?.broadcastServer || {};
+  const isBroadcastServerRunning = broadcastServer?.isRunning !== false;
+  const isAzuraCastLocked = payload?.locked || !isBroadcastServerRunning;
   const liveSource = config?.liveSource || {};
   const serviceStatus = payload?.status?.services || {};
   const listenerStats = payload?.listeners || {};
@@ -299,8 +318,16 @@ export default function AzuraCastDashboard() {
     try {
       const res = await fetch("/api/azuracast/status", { cache: "no-store" });
       const data = await res.json();
-      if (!res.ok) {
-        if (data?.config) setPayload({ config: data.config });
+        if (!res.ok) {
+        if (data?.config || data?.broadcastServer) {
+          setPayload((prev) => ({
+            ...prev,
+            config: data.config || prev?.config,
+            broadcastServer: data.broadcastServer || prev?.broadcastServer,
+            locked: data.locked ?? prev?.locked,
+            lockReason: data.lockReason || prev?.lockReason,
+          }));
+        }
         throw new Error(data?.error || "Failed to fetch status.");
       }
       setPayload(data);
@@ -476,11 +503,28 @@ export default function AzuraCastDashboard() {
           <span>{error}</span>
         </div>
       )}
-      {success && (
-        <div className="text-green-700 font-body bg-green-50 border border-green-100 p-3 rounded-md text-sm">
-          {success}
-        </div>
-      )}
+        {success && (
+          <div className="text-green-700 font-body bg-green-50 border border-green-100 p-3 rounded-md text-sm">
+            {success}
+          </div>
+        )}
+
+        {isAzuraCastLocked && (
+          <div className="text-yellow-800 font-body bg-yellow-50 border border-yellow-200 p-4 rounded-md text-sm flex gap-3">
+            <FiAlertTriangle className="mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="font-bold">AzuraCast management is locked.</p>
+              <p className="mt-1">
+                Start Broadcast Server dulu sebelum melihat status realtime atau
+                mengirim Start/Stop/Restart ke AzuraCast.
+              </p>
+              <p className="text-xs mt-2 text-yellow-700">
+                Broadcast Server: {broadcastServer?.status || "idle"}
+                {broadcastServer?.phase ? ` / ${broadcastServer.phase}` : ""}
+              </p>
+            </div>
+          </div>
+        )}
 
       {!config?.isConfigured && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg p-5">
@@ -592,7 +636,7 @@ export default function AzuraCastDashboard() {
                 ))}
               </div>
             </Panel>
-            <ListenerChart data={listenerHistory} />
+            <ListenerChart data={listenerHistory} range={listenerRange} />
             {listenerStats?.error && (
               <p className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-md px-3 py-2 font-body">
                 Listener stats unavailable: {listenerStats.error}
@@ -645,7 +689,11 @@ export default function AzuraCastDashboard() {
                   <button
                     key={action.id}
                     type="button"
-                    disabled={!config?.isConfigured || Boolean(savingAction)}
+                    disabled={
+                      !config?.isConfigured ||
+                      isAzuraCastLocked ||
+                      Boolean(savingAction)
+                    }
                     onClick={() => openConfirm(action)}
                     className={`inline-flex items-center justify-center gap-2 px-4 py-3 rounded-md font-body font-semibold disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${action.buttonClass}`}
                   >

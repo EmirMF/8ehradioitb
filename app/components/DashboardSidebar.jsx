@@ -20,6 +20,7 @@ const navItems = [
   { href: "/dashboard/now-playing", label: "Now Playing", icon: FiRadio, roles: ["MUSIC", "DEVELOPER"] },
   { href: "/dashboard/tune-tracker", label: "Tune Tracker", icon: FiMusic, roles: ["MUSIC", "DEVELOPER"] },
   { href: "/dashboard/program-videos", label: "Program Videos", icon: FiVideo, roles: ["DEVELOPER", "TECHNIC"] },
+  { href: "/dashboard/broadcast-server", label: "Broadcast Server", icon: FiServer, roles: ["DEVELOPER", "TECHNIC"] },
   { href: "/dashboard/azuracast", label: "AzuraCast", icon: FiServer, roles: ["DEVELOPER", "TECHNIC"] },
   { href: "/dashboard/player-config", label: "Player Config", icon: FiBarChart2, roles: ["DEVELOPER", "TECHNIC"] },
   { href: "/dashboard/stream-config", label: "Stream Config", icon: FiSettings, roles: ["DEVELOPER", "TECHNIC"] },

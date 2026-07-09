@@ -28,6 +28,28 @@ function errorResponse(error) {
   );
 }
 
+async function getBroadcastServerGate() {
+  const state = await prisma.broadcastServerState.findUnique({
+    where: { key: "main" },
+    select: {
+      status: true,
+      phase: true,
+      activeServerIp: true,
+      lastError: true,
+      updatedAt: true,
+    },
+  });
+
+  return {
+    isRunning: state?.status === "running",
+    status: state?.status || "idle",
+    phase: state?.phase || "idle",
+    activeServerIp: state?.activeServerIp || null,
+    lastError: state?.lastError || null,
+    updatedAt: state?.updatedAt?.toISOString?.() || null,
+  };
+}
+
 async function recordListenerSnapshot(config, listeners) {
   const hasStats = ["current", "unique", "total"].some(
     (key) => typeof listeners?.[key] === "number",
@@ -57,6 +79,30 @@ export async function GET() {
   }
 
   try {
+    const broadcastServer = await getBroadcastServerGate();
+    if (!broadcastServer.isRunning) {
+      return NextResponse.json({
+        config: getAzuraCastDashboardConfig(),
+        broadcastServer,
+        status: {
+          stationId: null,
+          services: { frontend: "unavailable" },
+          raw: null,
+          checkedAt: new Date().toISOString(),
+        },
+        listeners: {
+          current: null,
+          unique: null,
+          total: null,
+          checkedAt: new Date().toISOString(),
+          source: "broadcast_server_offline",
+          error: "Broadcast Server is not running.",
+        },
+        locked: true,
+        lockReason: "Broadcast Server is not running.",
+      });
+    }
+
     const [status, config, listeners] = await Promise.all([
       getAzuraCastStatus(),
       getAzuraCastDashboardConfigWithStationDetails(),
@@ -65,7 +111,7 @@ export async function GET() {
 
     await recordListenerSnapshot(config, listeners);
 
-    return NextResponse.json({ config, status, listeners });
+    return NextResponse.json({ config, status, listeners, broadcastServer });
   } catch (error) {
     console.error("Failed to fetch AzuraCast status:", error);
     return errorResponse(error);
