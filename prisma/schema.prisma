@@ -368,6 +368,18 @@ model NowPlayingState {
   updatedAt  DateTime  @updatedAt
 }
 
+model AzuraCastListenerSnapshot {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  stationId String
+  current   Int?
+  unique    Int?
+  total     Int?
+  source    String?
+  createdAt DateTime @default(now())
+
+  @@index([stationId, createdAt])
+}
+
 model ProgramVideo {
   id           String   @id @default(cuid()) @map("_id")
   title        String
