@@ -54,6 +54,21 @@ body {
     animation: marquee-infinite 20s linear infinite;
   }
 
+  @keyframes player-title-marquee {
+    0%,
+    15% {
+      transform: translateX(0);
+    }
+    85%,
+    100% {
+      transform: translateX(calc(-100% + var(--player-title-width, 15rem)));
+    }
+  }
+
+  .animate-player-title-marquee {
+    animation: player-title-marquee 14s linear infinite;
+  }
+
   /* Smooth spinner */
   @keyframes spinner-rotate {
     from {

@@ -4,9 +4,9 @@
   "private": true,
   "packageManager": "bun@1.3.4",
   "scripts": {
-    "dev": "bun --bun next dev",
-    "build": "bun --bun next build",
-    "start": "bun --bun next start",
+    "dev": "bun next dev",
+    "build": "bun next build",
+    "start": "bun next start",
     "lint": "bun --bun next lint",
     "vercel-build": "bunx prisma generate && bun --bun next build",
     "format": "prettier --write \"src/**/*.{js,jsx}\""
@@ -31,6 +31,8 @@
     "next-auth": "^4.24.13",
     "prisma": "^6.14.0",
     "prop-types": "^15.8.1",
+    "pusher": "^5.3.4",
+    "pusher-js": "^8.5.0",
     "qrcode.react": "^4.2.0",
     "radix-ui": "^1.4.2",
     "react": "^19.2.4",

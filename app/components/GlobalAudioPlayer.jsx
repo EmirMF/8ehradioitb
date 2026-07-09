@@ -1,6 +1,7 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
+import Pusher from "pusher-js";
 
 /**
  * GlobalAudioPlayer
@@ -17,6 +18,72 @@ import Image from "next/image";
  * 3. Dispatches a `window` custom-event  `audioStateChanged` so other
  *    components (e.g. the Navbar mobile play button) stay in sync.
  */
+function RunningTitle({ text }) {
+  const containerRef = useRef(null);
+  const measureRef = useRef(null);
+  const [isOverflowing, setIsOverflowing] = useState(false);
+  const [containerWidth, setContainerWidth] = useState(0);
+
+  useEffect(() => {
+    const measure = () => {
+      const container = containerRef.current;
+      const measureNode = measureRef.current;
+      if (!container || !measureNode) return;
+      setContainerWidth(container.clientWidth);
+      setIsOverflowing(measureNode.scrollWidth > container.clientWidth + 1);
+    };
+
+    const frameId = window.requestAnimationFrame(measure);
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(measure)
+        : null;
+
+    if (resizeObserver && containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
+
+    window.addEventListener("resize", measure);
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      window.removeEventListener("resize", measure);
+      if (resizeObserver) resizeObserver.disconnect();
+    };
+  }, [text]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative font-heading font-bold text-gray-800 text-xs md:text-sm overflow-hidden whitespace-nowrap"
+      aria-label={text}
+      title={text}
+    >
+      <span
+        ref={measureRef}
+        className="absolute invisible pointer-events-none whitespace-nowrap"
+        aria-hidden="true"
+      >
+        {text}
+      </span>
+
+      {isOverflowing ? (
+        <span
+          className="inline-block min-w-max animate-player-title-marquee"
+          style={{
+            "--player-title-width": `${containerWidth}px`,
+          }}
+        >
+          {text}
+        </span>
+      ) : (
+        <span className="block truncate">
+          {text}
+        </span>
+      )}
+    </div>
+  );
+}
+
 const GlobalAudioPlayer = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(1);
@@ -24,7 +91,7 @@ const GlobalAudioPlayer = () => {
   const [error, setError] = useState("");
   const [isMuted, setIsMuted] = useState(false);
 
-  // Player config state
+  // Now playing state. The API falls back to the existing player config.
   const [playerConfig, setPlayerConfig] = useState({
     title: "",
     subtitle: "",
@@ -32,19 +99,65 @@ const GlobalAudioPlayer = () => {
   });
 
   useEffect(() => {
-    // Fetch player config from API
-    fetch("/api/player-config")
-      .then((res) => res.json())
-      .then((data) => {
+    let cancelled = false;
+
+    const fetchNowPlaying = () => {
+      fetch("/api/now-playing", { cache: "no-store" })
+        .then((res) => res.json())
+        .then((data) => {
+          if (cancelled) return;
+          setPlayerConfig({
+            title: data?.title || "",
+            subtitle: data?.artist || "",
+            coverImage: data?.coverImage || "",
+          });
+        })
+        .catch(() => {
+          if (cancelled) return;
+          fetch("/api/player-config")
+            .then((res) => res.json())
+            .then((data) => {
+              if (cancelled) return;
+              setPlayerConfig({
+                title: data?.title || "",
+                subtitle: data?.subtitle || "",
+                coverImage: data?.coverImage || "",
+              });
+            })
+            .catch(() => {
+              if (cancelled) return;
+              setPlayerConfig({ title: "", subtitle: "", coverImage: "" });
+            });
+        });
+    };
+
+    fetchNowPlaying();
+    const intervalId = window.setInterval(fetchNowPlaying, 60000);
+
+    const pusherKey = process.env.NEXT_PUBLIC_PUSHER_KEY?.trim();
+    const pusherCluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER?.trim();
+    let pusher = null;
+
+    if (pusherKey && pusherCluster) {
+      pusher = new Pusher(pusherKey, {
+        cluster: pusherCluster,
+      });
+      const channel = pusher.subscribe("now-playing");
+      channel.bind("updated", (data) => {
+        if (cancelled) return;
         setPlayerConfig({
           title: data?.title || "",
-          subtitle: data?.subtitle || "",
+          subtitle: data?.artist || "",
           coverImage: data?.coverImage || "",
         });
-      })
-      .catch(() => {
-        setPlayerConfig({ title: "", subtitle: "", coverImage: "" });
       });
+    }
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+      if (pusher) pusher.disconnect();
+    };
   }, []);
 
   /* Listen to global play-state changes */
@@ -186,15 +299,13 @@ const GlobalAudioPlayer = () => {
                 </div>
 
                 <div className="text-sm min-w-0 w-48 md:w-60 flex-shrink-0">
-                  <p className="font-heading font-bold text-gray-800 truncate text-xs md:text-sm">
-                    {playerConfig.title || "8EH Radio ITB"}
-                  </p>
+                  <RunningTitle text={playerConfig.title || "8EH Radio ITB"} />
                   <p className="text-gray-500 flex items-center gap-2 font-body text-xs md:text-sm">
                     <span className="relative flex h-1.5 w-1.5 md:h-2 md:w-2">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-1.5 w-1.5 md:h-2 md:w-2 bg-red-500"></span>
                     </span>
-                    Live Now
+                    {playerConfig.subtitle || "Live Now"}
                   </p>
                 </div>
               </div>
