@@ -40,6 +40,13 @@ const ACTIONS = [
     icon: FiRotateCw,
     buttonClass: "bg-gray-900 hover:bg-black text-white",
   },
+  {
+    id: "rotate-password",
+    label: "Rotate Password",
+    confirm: "ROTATE",
+    icon: FiRotateCw,
+    buttonClass: "bg-blue-600 hover:bg-blue-700 text-white",
+  },
 ];
 
 function statusTone(status) {
@@ -404,7 +411,7 @@ export default function AzuraCastDashboard() {
     const action = selectedAction;
     setSavingAction(selectedAction.id);
     setError("");
-    setSuccess(`${selectedAction.label} action sent to AzuraCast.`);
+      setSuccess(`${selectedAction.label} action sent to the stream service.`);
     closeConfirm();
 
     try {
@@ -423,6 +430,12 @@ export default function AzuraCastDashboard() {
         ...prev,
         config: data.config || prev?.config,
       }));
+      if (action.id === "rotate-password") {
+        setShowSourcePassword(true);
+        setSuccess(
+          "Stream password rotated. The streaming server was restarted and credentials are refreshing.",
+        );
+      }
       fetchStatus({ silent: true });
       fetchListenerHistory();
     } catch (err) {
@@ -456,7 +469,7 @@ export default function AzuraCastDashboard() {
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-3xl font-heading font-bold text-gray-900">
-                  AzuraCast Control
+                  Live Stream Control
                 </h1>
                 <span
                   className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border ${statusTone(
@@ -474,7 +487,7 @@ export default function AzuraCastDashboard() {
               <p className="text-gray-600 font-body mt-1">
                 Station {config?.stationId || "-"} on{" "}
                 <span className="font-semibold text-gray-800">
-                  {config?.baseUrl || "AZURACAST_BASE_URL missing"}
+                  {config?.baseUrl || "Stream service URL missing"}
                 </span>
               </p>
               {lastChecked && (
@@ -513,13 +526,13 @@ export default function AzuraCastDashboard() {
           <div className="text-yellow-800 font-body bg-yellow-50 border border-yellow-200 p-4 rounded-md text-sm flex gap-3">
             <FiAlertTriangle className="mt-0.5 flex-shrink-0" />
             <div>
-              <p className="font-bold">AzuraCast management is locked.</p>
+              <p className="font-bold">Stream management is locked.</p>
               <p className="mt-1">
-                Start Broadcast Server dulu sebelum melihat status realtime atau
-                mengirim Start/Stop/Restart ke AzuraCast.
+                Start Broadcast Control dulu sebelum melihat status realtime atau
+                mengirim Start/Stop/Restart ke stream service.
               </p>
               <p className="text-xs mt-2 text-yellow-700">
-                Broadcast Server: {broadcastServer?.status || "idle"}
+                Broadcast Control: {broadcastServer?.status || "idle"}
                 {broadcastServer?.phase ? ` / ${broadcastServer.phase}` : ""}
               </p>
             </div>
@@ -529,7 +542,7 @@ export default function AzuraCastDashboard() {
       {!config?.isConfigured && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg p-5">
           <h2 className="font-heading font-bold text-lg mb-2">
-            AzuraCast is not configured
+            Stream service is not configured
           </h2>
           <p className="font-body text-sm">
             Missing env: {(config?.missing || []).join(", ") || "unknown"}.
@@ -660,7 +673,7 @@ export default function AzuraCastDashboard() {
                   {normalizedStreamStatus}
                 </div>
                   <p className="text-xs text-gray-500 font-body mt-3 leading-relaxed">
-                    Icecast/Shoutcast listener endpoint untuk audio dari BUTT.
+                    Listener endpoint untuk audio dari live encoder.
                   </p>
                 </div>
                 <span
@@ -711,7 +724,7 @@ export default function AzuraCastDashboard() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h2 className="font-heading font-bold text-xl text-gray-900">
-                      BUTT Source
+                      Live Encoder Source
                     </h2>
                       <p className="text-sm text-gray-500 font-body">
                         Connection credentials for live broadcast.
@@ -726,7 +739,7 @@ export default function AzuraCastDashboard() {
               </summary>
               {config?.liveSourceError && (
                 <p className="text-xs text-yellow-700 font-body mt-3">
-                  Could not read live source details from AzuraCast API,
+                  Could not read live source details from the stream service,
                   showing env fallback only.
                 </p>
               )}
@@ -839,18 +852,24 @@ export default function AzuraCastDashboard() {
             <h2 className="font-heading font-bold text-xl text-gray-900">
               Confirm {selectedAction.label}
             </h2>
-            <p className="font-body text-sm text-gray-600 mt-2">
-              Type{" "}
+              <p className="font-body text-sm text-gray-600 mt-2">
+                Type{" "}
               <span className="font-bold text-gray-900">
                 {selectedAction.confirm}
               </span>{" "}
-              to send this action to AzuraCast station{" "}
+              to send this action to stream station{" "}
               <span className="font-bold text-gray-900">
                 {config?.stationId || "unknown"}
               </span>
-              .
-            </p>
-            <input
+                .
+              </p>
+              {selectedAction.id === "rotate-password" && (
+                <p className="font-body text-xs text-blue-700 bg-blue-50 border border-blue-100 rounded-md p-3 mt-3">
+                  This will generate a new live encoder source password and restart
+                  the streaming server. Update the encoder after this action finishes.
+                </p>
+              )}
+              <input
               value={confirmText}
               onChange={(e) => setConfirmText(e.target.value.toUpperCase())}
               className="w-full border border-gray-300 p-3 rounded-md font-body text-gray-900 bg-white focus:ring-2 focus:ring-red-500 focus:border-red-500 mt-4"

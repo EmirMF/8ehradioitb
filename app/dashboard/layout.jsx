@@ -9,20 +9,20 @@ export default function DashboardLayout({ children }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
-    <div className="flex bg-gray-100 h-screen overflow-hidden font-body">
+    <div className="flex bg-gray-100 h-dvh overflow-hidden font-body">
       {/* Sidebar untuk Desktop */}
-      <div className="hidden lg:block overflow-y-auto">
+      <div className="hidden lg:block h-dvh overflow-hidden">
         <DashboardSidebar />
       </div>
 
       {/* Sidebar untuk Mobile (Drawer) */}
       {isSidebarOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-black/30 z-[70]"
+          className="lg:hidden fixed inset-0 bg-black/30 z-[70] overflow-hidden"
           onClick={() => setIsSidebarOpen(false)}
         >
           <div
-            className="absolute left-0 top-0 h-full"
+            className="absolute left-0 top-0 h-dvh max-h-dvh overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <DashboardSidebar />

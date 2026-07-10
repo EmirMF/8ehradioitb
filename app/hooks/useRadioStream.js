@@ -64,7 +64,7 @@ export const useRadioStream = () => {
   const randomCode = Math.random().toString(36).substring(2, 8);
   const baseUrl = STREAM_CONFIG.baseUrl;
   
-  // Kalau AzuraCast/direct file stream, cukup tambah query param nocache
+  // Kalau stream service/direct file stream, cukup tambah query param nocache
   if (baseUrl.includes("/listen/") || baseUrl.endsWith(".mp3")) {
     return toBrowserPlayableUrl(addNoCache(baseUrl, randomCode));
   }
@@ -107,7 +107,7 @@ export const useRadioStream = () => {
     const randomCode = Math.random().toString(36).substring(2, 8);
     const fallbackUrl = STREAM_CONFIG.fallbackUrl;
     
-    // Sama seperti generateStreamUrl, deteksi AzuraCast atau Shoutcast
+    // Sama seperti generateStreamUrl, deteksi stream service atau Shoutcast
     if (fallbackUrl.includes("/listen/") || fallbackUrl.endsWith(".mp3")) {
       setStreamUrl(toBrowserPlayableUrl(addNoCache(fallbackUrl, randomCode)));
     } else {

@@ -19,7 +19,7 @@ function canManage(roleString) {
 function errorResponse(error) {
   return NextResponse.json(
     {
-      error: error.message || "AzuraCast request failed",
+      error: error.message || "Stream service request failed",
       code: error.code || "AZURACAST_ERROR",
       config: getAzuraCastDashboardConfig(),
       payload: error.payload || null,
@@ -68,7 +68,7 @@ async function recordListenerSnapshot(config, listeners) {
       },
     });
   } catch (error) {
-    console.warn("Failed to record AzuraCast listener snapshot:", error);
+    console.warn("Failed to record stream listener snapshot:", error);
   }
 }
 
@@ -96,10 +96,10 @@ export async function GET() {
           total: null,
           checkedAt: new Date().toISOString(),
           source: "broadcast_server_offline",
-          error: "Broadcast Server is not running.",
+          error: "Broadcast Control is not running.",
         },
         locked: true,
-        lockReason: "Broadcast Server is not running.",
+        lockReason: "Broadcast Control is not running.",
       });
     }
 
@@ -118,7 +118,7 @@ export async function GET() {
       broadcastServer,
     });
   } catch (error) {
-    console.error("Failed to fetch AzuraCast status:", error);
+    console.error("Failed to fetch stream status:", error);
     return errorResponse(error);
   }
 }

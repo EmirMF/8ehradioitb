@@ -10,23 +10,25 @@ import { useState } from 'react';
 import { FiHome, FiEdit, FiMic, FiLink, FiUsers, FiCheckSquare, FiLogOut, FiSettings, FiBarChart2, FiMusic, FiChevronLeft, FiChevronRight, FiVideo, FiClipboard, FiDatabase, FiRadio, FiServer } from 'react-icons/fi';
 
 const navItems = [
-  { href: "/dashboard", label: "Home", icon: FiHome, roles: ["MUSIC", "DEVELOPER", "TECHNIC", "REPORTER", "KRU"] },
-  { href: "/dashboard/blog", label: "Blog", icon: FiEdit, roles: ["DEVELOPER", "REPORTER"] },
-  { href: "/dashboard/podcast", label: "Podcast", icon: FiMic, roles: ["DEVELOPER", "MUSIC"] },
-  { href: "/dashboard/links", label: "Links & QR Codes", icon: FiLink, roles: ["MUSIC", "DEVELOPER", "TECHNIC", "REPORTER", "KRU"] },
-  { href: "/dashboard/forms", label: "Forms", icon: FiClipboard, roles: ["MUSIC", "DEVELOPER", "TECHNIC", "REPORTER", "KRU", "DATA"] },
-  { href: "/dashboard/profile-catalog", label: "Profile Fields", icon: FiCheckSquare, roles: ["DEVELOPER", "DATA"] },
-  { href: "/dashboard/kru-database", label: "Kru Database", icon: FiDatabase, roles: ["DEVELOPER", "DATA"] },
-  { href: "/dashboard/now-playing", label: "Now Playing", icon: FiRadio, roles: ["MUSIC", "DEVELOPER"] },
-  { href: "/dashboard/tune-tracker", label: "Tune Tracker", icon: FiMusic, roles: ["MUSIC", "DEVELOPER"] },
-  { href: "/dashboard/program-videos", label: "Program Videos", icon: FiVideo, roles: ["DEVELOPER", "TECHNIC"] },
-  { href: "/dashboard/broadcast-server", label: "Broadcast Server", icon: FiServer, roles: ["DEVELOPER", "TECHNIC"] },
-  { href: "/dashboard/azuracast", label: "AzuraCast", icon: FiServer, roles: ["DEVELOPER", "TECHNIC"] },
-  { href: "/dashboard/player-config", label: "Player Config", icon: FiBarChart2, roles: ["DEVELOPER", "TECHNIC"] },
-  { href: "/dashboard/stream-config", label: "Stream Config", icon: FiSettings, roles: ["DEVELOPER", "TECHNIC"] },
-  { href: "/dashboard/users", label: "Users", icon: FiUsers, roles: ["DEVELOPER"] },
-  { href: "/dashboard/whitelist", label: "Whitelist", icon: FiCheckSquare, roles: ["DEVELOPER"] },
+  { href: "/dashboard", label: "Home", icon: FiHome, section: "Main", roles: ["MUSIC", "DEVELOPER", "TECHNIC", "REPORTER", "KRU"] },
+  { href: "/dashboard/blog", label: "Blog", icon: FiEdit, section: "Content", roles: ["DEVELOPER", "REPORTER"] },
+  { href: "/dashboard/podcast", label: "Podcast", icon: FiMic, section: "Content", roles: ["DEVELOPER", "MUSIC"] },
+  { href: "/dashboard/program-videos", label: "Program Videos", icon: FiVideo, section: "Content", roles: ["DEVELOPER", "TECHNIC"] },
+  { href: "/dashboard/now-playing", label: "Now Playing", icon: FiRadio, section: "Radio", roles: ["MUSIC", "DEVELOPER"] },
+  { href: "/dashboard/tune-tracker", label: "Tune Tracker", icon: FiMusic, section: "Radio", roles: ["MUSIC", "DEVELOPER"] },
+  { href: "/dashboard/player-config", label: "Player Config", icon: FiBarChart2, section: "Radio", roles: ["DEVELOPER", "TECHNIC"] },
+  { href: "/dashboard/stream-config", label: "Stream Config", icon: FiSettings, section: "Radio", roles: ["DEVELOPER", "TECHNIC"] },
+  { href: "/dashboard/broadcast-server", label: "Broadcast Control", icon: FiServer, section: "Technic", roles: ["DEVELOPER", "TECHNIC"] },
+  { href: "/dashboard/live-stream", label: "Live Stream Control", icon: FiServer, section: "Technic", roles: ["DEVELOPER", "TECHNIC"] },
+  { href: "/dashboard/links", label: "Links & QR Codes", icon: FiLink, section: "Tools", roles: ["MUSIC", "DEVELOPER", "TECHNIC", "REPORTER", "KRU"] },
+  { href: "/dashboard/forms", label: "Forms", icon: FiClipboard, section: "Tools", roles: ["MUSIC", "DEVELOPER", "TECHNIC", "REPORTER", "KRU", "DATA"] },
+  { href: "/dashboard/profile-catalog", label: "Profile Fields", icon: FiCheckSquare, section: "Data", roles: ["DEVELOPER", "DATA"] },
+  { href: "/dashboard/kru-database", label: "Kru Database", icon: FiDatabase, section: "Data", roles: ["DEVELOPER", "DATA"] },
+  { href: "/dashboard/users", label: "Users", icon: FiUsers, section: "Admin", roles: ["DEVELOPER"] },
+  { href: "/dashboard/whitelist", label: "Whitelist", icon: FiCheckSquare, section: "Admin", roles: ["DEVELOPER"] },
 ];
+
+const sectionOrder = ["Main", "Content", "Tools", "Radio", "Technic", "Data", "Admin"];
 
 export default function DashboardSidebar() {
   const pathname = usePathname();
@@ -36,10 +38,16 @@ export default function DashboardSidebar() {
   const visibleNavItems = navItems.filter(item =>
     hasAnyRole(session?.user?.role, item.roles)
   );
+  const groupedItems = sectionOrder
+    .map((section) => ({
+      section,
+      items: visibleNavItems.filter((item) => item.section === section),
+    }))
+    .filter((group) => group.items.length > 0);
 
   return (
-    <aside className={`h-full flex flex-col bg-white shadow-lg transition-all duration-300 ease-in-out ${isExpanded ? 'w-64' : 'w-20'}`}>
-      <div className={`flex items-center p-4 border-b border-gray-200 ${isExpanded ? 'justify-between' : 'justify-center'}`}>
+    <aside className={`h-full max-h-screen min-h-0 flex flex-col bg-white shadow-lg transition-all duration-300 ease-in-out ${isExpanded ? 'w-72 lg:w-64' : 'w-20'}`}>
+      <div className={`flex-shrink-0 flex items-center p-4 border-b border-gray-200 ${isExpanded ? 'justify-between' : 'justify-center'}`}>
         {isExpanded && (
           <Link href="/dashboard">
             <Image src="/8eh-real-long.png" alt="8EH Logo" width={100} height={40} />
@@ -53,29 +61,40 @@ export default function DashboardSidebar() {
         </button>
       </div>
 
-      <nav className="flex-1 flex flex-col space-y-2 mt-4 px-4">
-        {visibleNavItems.map(({ href, label, icon: Icon }) => {
-          const isActive = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
-          return (
-            <Link
-              key={href}
-              href={href}
-              title={label}
-              className={`flex items-center space-x-4 p-3 rounded-lg transition-colors cursor-pointer ${
-                isActive ? 'bg-red-500 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'
-              } ${!isExpanded ? 'justify-center' : ''}`}
-            >
-              <Icon size={20} />
-              {isExpanded && <span className="font-body font-medium">{label}</span>}
-            </Link>
-          );
-        })}
+      <nav className="flex-1 min-h-0 overflow-y-auto overscroll-contain py-4 px-3 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+        <div className="space-y-5 pb-4">
+          {groupedItems.map(({ section, items }) => (
+            <div key={section} className="space-y-1">
+              {isExpanded && (
+                <p className="px-3 text-[11px] font-bold uppercase tracking-wide text-gray-400">
+                  {section}
+                </p>
+              )}
+              {items.map(({ href, label, icon: Icon }) => {
+                const isActive = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    title={label}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors cursor-pointer text-sm ${
+                      isActive ? 'bg-red-500 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'
+                    } ${!isExpanded ? 'justify-center' : ''}`}
+                  >
+                    <Icon size={19} className="flex-shrink-0" />
+                    {isExpanded && <span className="font-body font-medium truncate">{label}</span>}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
+        </div>
       </nav>
 
-      <div className={`px-4 py-4 border-t border-gray-200`}>
+      <div className={`flex-shrink-0 px-3 py-3 border-t border-gray-200 bg-white`}>
           <button
             onClick={() => signOut({ callbackUrl: '/login' })}
-            className={`w-full flex items-center space-x-4 p-3 rounded-lg text-gray-600 hover:bg-gray-100 cursor-pointer ${!isExpanded ? 'justify-center' : ''}`}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-100 cursor-pointer text-sm ${!isExpanded ? 'justify-center' : ''}`}
           >
              <FiLogOut size={20} />
              {isExpanded && <span className="font-body font-medium">Logout</span>}

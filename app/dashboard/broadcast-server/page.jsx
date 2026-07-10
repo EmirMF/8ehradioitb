@@ -55,9 +55,9 @@ const ACTIONS = {
 
 const PROCESS_MESSAGES = {
   creating:
-    "Server sedang dibuat di Hetzner. Tetap buka halaman ini sampai status berubah.",
+    "Server sedang dibuat oleh provider. Tetap buka halaman ini sampai status berubah.",
   booting:
-    "Server sedang booting dan menunggu AzuraCast siap. Jangan tutup atau pindah halaman dulu.",
+    "Server sedang booting dan menunggu stream service siap. Jangan tutup atau pindah halaman dulu.",
   ending:
     "Broadcast sedang diakhiri. Tetap di halaman ini sampai proses selesai.",
   snapshotting:
@@ -70,7 +70,7 @@ const START_STEPS = [
   {
     id: "creating",
     title: "Create server",
-    description: "Hetzner membuat VPS baru dari snapshot terakhir.",
+    description: "Provider membuat VPS baru dari snapshot terakhir.",
     statuses: ["creating"],
   },
   {
@@ -82,7 +82,7 @@ const START_STEPS = [
   {
     id: "health-check",
     title: "Check stream",
-    description: "Menunggu AzuraCast public URL sehat dan siap dipakai.",
+    description: "Menunggu public stream URL sehat dan siap dipakai.",
     phases: ["health-check"],
   },
   {
@@ -392,7 +392,7 @@ function LifecycleTimeline({ state }) {
   const helper =
     mode === "end"
       ? "Snapshot dulu, baru server dihapus. Kalau snapshot gagal, server tidak dihapus."
-      : "Server dibuat, booting, lalu public AzuraCast URL dicek sampai siap.";
+      : "Server dibuat, booting, lalu public stream URL dicek sampai siap.";
 
   return (
     <section className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
@@ -537,7 +537,7 @@ export default function BroadcastServerPage() {
     const handleBeforeUnload = (event) => {
       event.preventDefault();
       event.returnValue =
-        "Broadcast Server is still processing. Leaving may pause the lifecycle polling.";
+        "Broadcast Control is still processing. Leaving may pause the lifecycle polling.";
       return event.returnValue;
     };
 
@@ -611,7 +611,7 @@ export default function BroadcastServerPage() {
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-3xl font-heading font-bold text-gray-900">
-                  Broadcast Server
+                  Broadcast Control
                 </h1>
                 <span
                   className={`inline-flex px-3 py-1 rounded-full border text-xs font-bold ${statusTone(
@@ -622,7 +622,7 @@ export default function BroadcastServerPage() {
                 </span>
               </div>
               <p className="text-gray-600 font-body mt-1">
-                Temporary Hetzner server lifecycle for live broadcast.
+                Temporary cloud server lifecycle for live broadcast.
               </p>
               {state.updatedAt && (
                 <p className="text-xs text-gray-400 font-body mt-2 inline-flex items-center gap-1">
@@ -664,7 +664,7 @@ export default function BroadcastServerPage() {
             <p className="font-bold">Tetap di halaman ini sampai proses selesai.</p>
             <p className="mt-1">
               {PROCESS_MESSAGES[state.status] ||
-                "Broadcast Server sedang memproses action. Page ini melakukan polling untuk melanjutkan lifecycle."}
+                "Broadcast Control sedang memproses action. Page ini melakukan polling untuk melanjutkan lifecycle."}
             </p>
             <p className="text-xs text-blue-700 mt-2">
               Status final: <span className="font-bold">running</span> untuk Start,
@@ -677,7 +677,7 @@ export default function BroadcastServerPage() {
       {!config.isConfigured && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg p-5">
           <h2 className="font-heading font-bold text-lg mb-2">
-            Hetzner is not configured
+            Server provider is not configured
           </h2>
           <p className="font-body text-sm">
             Missing env: {(config.missing || []).join(", ") || "unknown"}.
@@ -758,7 +758,7 @@ export default function BroadcastServerPage() {
 
           <section className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
             <h2 className="font-heading font-bold text-xl text-gray-900">
-              Hetzner Config
+              Server Provider Config
             </h2>
             <div className="space-y-3 mt-4 text-sm font-body">
                 <div className="flex justify-between gap-3">
@@ -807,17 +807,6 @@ export default function BroadcastServerPage() {
                     {config.minRuntimeMinutes
                       ? `${config.minRuntimeMinutes} min`
                       : "-"}
-                  </span>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <span className="text-gray-500">BUTT password</span>
-                  <span className="font-semibold text-gray-900 text-right">
-                    {config.rotatesSourcePassword ? "rotates on start" : "static"}
-                    {state.sourcePasswordRotatedAt && (
-                      <span className="block text-xs text-gray-400 font-normal">
-                        rotated: {formatDate(state.sourcePasswordRotatedAt)}
-                      </span>
-                    )}
                   </span>
                 </div>
               </div>

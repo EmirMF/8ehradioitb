@@ -5,12 +5,13 @@ import { hasAnyRole } from "@/lib/roleUtils";
 import { prisma } from "@/lib/prisma";
 import {
   getAzuraCastDashboardConfig,
+  rotateAzuraCastSourcePassword,
   runAzuraCastAction,
 } from "@/lib/azuracast";
 
 export const dynamic = "force-dynamic";
 
-const ACTIONS = new Set(["start", "stop", "restart"]);
+const ACTIONS = new Set(["start", "stop", "restart", "rotate-password"]);
 
 function canManage(roleString) {
   return hasAnyRole(roleString, ["DEVELOPER", "TECHNIC"]);
@@ -23,7 +24,7 @@ function cleanString(value) {
 function errorResponse(error) {
   return NextResponse.json(
     {
-      error: error.message || "AzuraCast action failed",
+      error: error.message || "Stream service action failed",
       code: error.code || "AZURACAST_ERROR",
       config: getAzuraCastDashboardConfig(),
       payload: error.payload || null,
@@ -41,7 +42,7 @@ async function ensureBroadcastServerRunning() {
   if (state?.status === "running") return;
 
   const error = new Error(
-    "Broadcast Server is not running. Start Broadcast Server before controlling AzuraCast.",
+    "Broadcast Control is not running. Start Broadcast Control before controlling the stream service.",
   );
   error.status = 409;
   error.code = "BROADCAST_SERVER_OFFLINE";
@@ -69,13 +70,17 @@ export async function POST(req) {
     }
 
     await ensureBroadcastServerRunning();
+    const result =
+      action === "rotate-password"
+        ? await rotateAzuraCastSourcePassword()
+        : await runAzuraCastAction(action);
 
     return NextResponse.json({
       config: getAzuraCastDashboardConfig(),
-      result: await runAzuraCastAction(action),
+      result,
     });
   } catch (error) {
-    console.error("Failed to run AzuraCast action:", error);
+    console.error("Failed to run stream service action:", error);
     return errorResponse(error);
   }
 }
