@@ -154,6 +154,13 @@ function getMinutesUntil(value) {
   return Number.isFinite(minutes) ? minutes : null;
 }
 
+function getCanEndBroadcast(state, config) {
+  if (state.status !== "running") return false;
+  const minRuntime = config.minRuntimeMinutes || 0;
+  if (!minRuntime) return true;
+  return getRuntimeMinutes(state.startedAt) >= minRuntime;
+}
+
 function isLikelyNetworkGlitch(error) {
   const message = String(error?.message || "").toLowerCase();
   return (
@@ -253,6 +260,15 @@ function getActionHelpText(status) {
     return "Cek Last error dulu. Retry akan melanjutkan proses dari phase terakhir.";
   }
   return "Action dikunci sementara karena lifecycle sedang berjalan.";
+}
+
+function getActionDisabledReason(actionId, state, config) {
+  if (actionId !== "end") return "";
+  if (getCanEndBroadcast(state, config)) return "";
+
+  const minRuntime = config.minRuntimeMinutes || 0;
+  const runtime = getRuntimeMinutes(state.startedAt);
+  return `End Broadcast baru bisa dipakai setelah ${minRuntime} menit. Runtime sekarang ${runtime} menit.`;
 }
 
 function RuntimeWarning({ state, config }) {
@@ -703,17 +719,32 @@ export default function BroadcastServerPage() {
               {availableActions.map((actionId) => {
                 const action = ACTIONS[actionId];
                 const Icon = action.icon;
+                const disabledReason = getActionDisabledReason(
+                  actionId,
+                  state,
+                  config,
+                );
                 return (
-                  <button
-                    key={actionId}
-                    type="button"
-                    disabled={!config.isConfigured || Boolean(runningAction)}
-                    onClick={() => openConfirm(actionId)}
-                    className={`inline-flex items-center justify-center gap-2 px-4 py-3 rounded-md font-body font-semibold disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${action.className}`}
-                  >
-                    <Icon />
-                    {runningAction === actionId ? "Sending..." : action.label}
-                  </button>
+                  <div key={actionId}>
+                    <button
+                      type="button"
+                      disabled={
+                        !config.isConfigured ||
+                        Boolean(runningAction) ||
+                        Boolean(disabledReason)
+                      }
+                      onClick={() => openConfirm(actionId)}
+                      className={`w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-md font-body font-semibold disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${action.className}`}
+                    >
+                      <Icon />
+                      {runningAction === actionId ? "Sending..." : action.label}
+                    </button>
+                    {disabledReason && (
+                      <p className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-100 rounded-md p-2 mt-2 font-body">
+                        {disabledReason}
+                      </p>
+                    )}
+                  </div>
                 );
               })}
               {availableActions.length === 0 && (
@@ -730,18 +761,28 @@ export default function BroadcastServerPage() {
               Hetzner Config
             </h2>
             <div className="space-y-3 mt-4 text-sm font-body">
-              <div className="flex justify-between gap-3">
-                <span className="text-gray-500">Server type</span>
-                <span className="font-semibold text-gray-900">
-                  {config.serverType || "-"}
-                </span>
-              </div>
-              <div className="flex justify-between gap-3">
-                <span className="text-gray-500">Location</span>
-                <span className="font-semibold text-gray-900">
-                  {config.location || "-"}
-                </span>
-              </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-gray-500">Server type</span>
+                  <span className="font-semibold text-gray-900 text-right">
+                    {config.serverType || "-"}
+                    {config.serverTypeFallbacks?.length > 0 && (
+                      <span className="block text-xs text-gray-400 font-normal">
+                        fallback: {config.serverTypeFallbacks.join(", ")}
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-gray-500">Location</span>
+                  <span className="font-semibold text-gray-900 text-right">
+                    {config.location || "-"}
+                    {config.locationFallbacks?.length > 0 && (
+                      <span className="block text-xs text-gray-400 font-normal">
+                        fallback: {config.locationFallbacks.join(", ")}
+                      </span>
+                    )}
+                  </span>
+                </div>
               <div className="flex justify-between gap-3">
                 <span className="text-gray-500">SSH keys</span>
                 <span className="font-semibold text-gray-900">
@@ -752,16 +793,35 @@ export default function BroadcastServerPage() {
                 <span className="text-gray-500">DNS</span>
                 <span className="font-semibold text-gray-900">external</span>
               </div>
-              <div className="flex justify-between gap-3">
-                <span className="text-gray-500">Auto end after</span>
+                <div className="flex justify-between gap-3">
+                  <span className="text-gray-500">Auto end after</span>
                 <span className="font-semibold text-gray-900">
                   {config.maxRuntimeMinutes
                     ? `${config.maxRuntimeMinutes} min`
                     : "-"}
-                </span>
+                  </span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-gray-500">Min before end</span>
+                  <span className="font-semibold text-gray-900">
+                    {config.minRuntimeMinutes
+                      ? `${config.minRuntimeMinutes} min`
+                      : "-"}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-gray-500">BUTT password</span>
+                  <span className="font-semibold text-gray-900 text-right">
+                    {config.rotatesSourcePassword ? "rotates on start" : "static"}
+                    {state.sourcePasswordRotatedAt && (
+                      <span className="block text-xs text-gray-400 font-normal">
+                        rotated: {formatDate(state.sourcePasswordRotatedAt)}
+                      </span>
+                    )}
+                  </span>
+                </div>
               </div>
-            </div>
-          </section>
+            </section>
         </aside>
       </div>
 

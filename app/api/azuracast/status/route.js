@@ -111,7 +111,12 @@ export async function GET() {
 
     await recordListenerSnapshot(config, listeners);
 
-    return NextResponse.json({ config, status, listeners, broadcastServer });
+    return NextResponse.json({
+      config,
+      status,
+      listeners,
+      broadcastServer,
+    });
   } catch (error) {
     console.error("Failed to fetch AzuraCast status:", error);
     return errorResponse(error);

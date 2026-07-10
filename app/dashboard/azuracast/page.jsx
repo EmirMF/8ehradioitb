@@ -652,18 +652,18 @@ export default function AzuraCastDashboard() {
                 <p className="text-xs uppercase tracking-wide text-gray-500 font-bold">
                   Streaming Server
                 </p>
-                <div
-                  className={`inline-flex mt-3 px-3 py-1 rounded-full text-sm font-bold border ${statusTone(
-                    normalizedStreamStatus,
+                  <div
+                    className={`inline-flex mt-3 px-3 py-1 rounded-full text-sm font-bold border ${statusTone(
+                      normalizedStreamStatus,
                   )}`}
                 >
                   {normalizedStreamStatus}
                 </div>
-                <p className="text-xs text-gray-500 font-body mt-3 leading-relaxed">
-                  Icecast/Shoutcast listener endpoint untuk audio dari BUTT.
-                </p>
-              </div>
-              <span
+                  <p className="text-xs text-gray-500 font-body mt-3 leading-relaxed">
+                    Icecast/Shoutcast listener endpoint untuk audio dari BUTT.
+                  </p>
+                </div>
+                <span
                 className={`w-3 h-3 rounded-full mt-1 ${statusDotTone(
                   normalizedStreamStatus,
                 )}`}
@@ -713,10 +713,10 @@ export default function AzuraCastDashboard() {
                     <h2 className="font-heading font-bold text-xl text-gray-900">
                       BUTT Source
                     </h2>
-                    <p className="text-sm text-gray-500 font-body">
-                      Connection credentials for live broadcast.
-                    </p>
-                  </div>
+                      <p className="text-sm text-gray-500 font-body">
+                        Connection credentials for live broadcast.
+                      </p>
+                    </div>
                   {!liveSource?.isConfigured && (
                     <span className="text-xs text-yellow-800 bg-yellow-50 border border-yellow-200 rounded-md px-2 py-1 font-body">
                       Missing
