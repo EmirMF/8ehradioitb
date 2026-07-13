@@ -15,8 +15,12 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'Pesan tidak ditemukan' }, { status: 404 });
   }
 
-  // Hapus dari memori
-  messages.splice(index, 1);
+  // Tandai sebagai dihapus di memori
+  messages[index] = {
+    ...messages[index],
+    text: "Pesan ini dihapus oleh moderator",
+    deleted: true
+  };
 
   // Beritahu semua client untuk menghapus pesan ini dari UI
   broadcast({

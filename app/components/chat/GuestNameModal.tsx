@@ -20,7 +20,7 @@ export default function GuestNameModal(props: GuestNameModalProps) {
       return;
     }
 
-    localStorage.setItem('guest_name', trimmedName);
+    sessionStorage.setItem('guest_name', trimmedName); 
     onSaveName(trimmedName);
   };
 

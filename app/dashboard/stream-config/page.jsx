@@ -5,7 +5,7 @@ import { FiPlus, FiTrash2, FiSave } from "react-icons/fi";
 import { hasAnyRole } from '@/lib/roleUtils';
 
 export default function StreamConfigPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [config, setConfig] = useState({
     baseUrls: [],
     defaultUrl: "",

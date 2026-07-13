@@ -7,7 +7,7 @@ import { useSession, signOut } from "next-auth/react";
 import { hasAnyRole } from "@/lib/roleUtils";
 import ButtonPrimary from "./ButtonPrimary";
 import { useState } from 'react';
-import { FiHome, FiEdit, FiMic, FiLink, FiUsers, FiCheckSquare, FiLogOut, FiSettings, FiBarChart2, FiMusic, FiChevronLeft, FiChevronRight, FiVideo, FiClipboard, FiDatabase } from 'react-icons/fi';
+import { FiHome, FiEdit, FiMic, FiLink, FiUsers, FiCheckSquare, FiLogOut, FiSettings, FiBarChart2, FiMusic, FiChevronLeft, FiChevronRight, FiVideo, FiClipboard, FiDatabase, FiMessageCircle } from 'react-icons/fi';
 
 const navItems = [
   { href: "/dashboard", label: "Home", icon: FiHome, roles: ["MUSIC", "DEVELOPER", "TECHNIC", "REPORTER", "KRU"] },
@@ -21,6 +21,7 @@ const navItems = [
   { href: "/dashboard/program-videos", label: "Program Videos", icon: FiVideo, roles: ["DEVELOPER", "TECHNIC"] },
   { href: "/dashboard/player-config", label: "Player Config", icon: FiBarChart2, roles: ["DEVELOPER", "TECHNIC"] },
   { href: "/dashboard/stream-config", label: "Stream Config", icon: FiSettings, roles: ["DEVELOPER", "TECHNIC"] },
+  { href: "/dashboard/live-chat", label: "Live Chat", icon: FiMessageCircle, roles: ["DEVELOPER", "TECHNIC"] },
   { href: "/dashboard/users", label: "Users", icon: FiUsers, roles: ["DEVELOPER"] },
   { href: "/dashboard/whitelist", label: "Whitelist", icon: FiCheckSquare, roles: ["DEVELOPER"] },
 ];

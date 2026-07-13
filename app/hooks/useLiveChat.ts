@@ -7,6 +7,7 @@ export interface ChatMessage {
   senderName: string;
   text: string;
   timestamp: Date;
+  deleted?: boolean;
 }
 
 export interface ActiveGuest {
@@ -19,10 +20,17 @@ export function useLiveChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [sessionId, setSessionId] = useState<string>('');
+  const [connectionError, setConnectionError] = useState(false);
+  const [reconnectTrigger, setReconnectTrigger] = useState(0);
   
   // States untuk Admin / Moderasi
   const [activeListeners, setActiveListeners] = useState<number>(0);
   const [activeGuests, setActiveGuests] = useState<ActiveGuest[]>([]);
+
+  const reconnect = useCallback(() => {
+    setConnectionError(false);
+    setReconnectTrigger(prev => prev + 1);
+  }, []);
 
   useEffect(() => {
     // Generate atau ambil session ID unik untuk user ini
@@ -34,12 +42,29 @@ export function useLiveChat() {
     setSessionId(storedSessionId);
 
     const userName = localStorage.getItem('guest_name') || 'Guest';
+
+    // Ambil riwayat pesan yang sudah ada di server
+    fetch('/api/chat/messages')
+      .then(res => res.json())
+      .then(data => {
+        if (data.messages && data.messages.length > 0) {
+          setMessages(data.messages.map((m: any) => ({
+            ...m,
+            timestamp: new Date(m.timestamp),
+          })));
+        }
+      })
+      .catch(err => {
+        console.error('Gagal memuat riwayat pesan:', err);
+        setConnectionError(true);
+      });
     
     // Hubungkan ke stream dengan menyertakan sessionId dan nama
     const eventSource = new EventSource(`/api/chat/stream?sessionId=${storedSessionId}&name=${encodeURIComponent(userName)}`);
 
     eventSource.onopen = () => {
       setIsConnected(true);
+      setConnectionError(false);
     };
 
     eventSource.onmessage = (event) => {
@@ -49,7 +74,7 @@ export function useLiveChat() {
 
         // Jika ini adalah event hapus pesan
         if (parsed.type === 'delete_message') {
-          setMessages((prev) => prev.filter(m => m.id !== parsed.messageId));
+          setMessages((prev) => prev.map(m => m.id === parsed.messageId ? { ...m, text: "Pesan ini dihapus oleh moderator", deleted: true } : m));
           return;
         }
 
@@ -82,12 +107,13 @@ export function useLiveChat() {
 
     eventSource.onerror = () => {
       setIsConnected(false);
+      setConnectionError(true);
     };
 
     return () => {
       eventSource.close();
     };
-  }, []);
+  }, [reconnectTrigger]);
 
   const sendMessage = useCallback(async (text: string, senderName: string) => {
     try {
@@ -141,6 +167,8 @@ export function useLiveChat() {
   return {
     messages,
     isConnected,
+    connectionError,
+    reconnect,
     sendMessage,
     activeListeners,
     activeGuests,
