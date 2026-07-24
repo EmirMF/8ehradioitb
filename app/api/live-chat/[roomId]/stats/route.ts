@@ -35,9 +35,28 @@ export async function GET(_req: Request, { params }: RouteParams) {
 
   const messageCount = await prisma.chatMessage.count({ where: { roomId, isDeleted: false } });
 
+  // Query guest sessions yang belum expired dan terikat ke broadcastId yang sama
+  const activeSessions = await prisma.guestSession.findMany({
+    where: {
+      broadcastId: room.broadcastId,
+      expiresAt: { gt: new Date() },
+    },
+    select: {
+      sessionId: true,
+      guestName: true,
+      isMuted: true,
+    },
+  });
+
   return NextResponse.json({
     roomId,
     isActive: room.isActive,
     messageCount,
+    activeListeners: activeSessions.length,
+    activeGuests: activeSessions.map((s) => ({
+      sessionId: s.sessionId,
+      name: s.guestName,
+      isMuted: s.isMuted,
+    })),
   });
 }

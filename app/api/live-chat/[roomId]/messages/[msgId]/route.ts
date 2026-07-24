@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { ObjectId } from "bson";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/live-chat/auth";
 import { broadcastMessageDeleted } from "@/lib/live-chat/pusher";
@@ -32,7 +31,9 @@ export async function DELETE(_req: Request, { params }: RouteParams) {
   // requireAdmin() di lib/auth.ts fallback ke session.user.email karena
   // session.user.id tidak ada, request ini akan ditolak di sini supaya tidak
   // menyebabkan Prisma error tidak jelas di tahap update.
-  if (!ObjectId.isValid(admin.adminId)) {
+  const isValidObjectId = (id: string) => /^[0-9a-f]{24}$/i.test(id);
+
+  if (!isValidObjectId(admin.adminId)) {
     console.error(
       `[live-chat] admin.adminId ("${admin.adminId}") bukan ObjectId valid. ` +
         "Cek apakah session.user.id ter-populate dengan benar di NextAuth callback."

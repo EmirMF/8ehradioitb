@@ -2,11 +2,56 @@
 import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 
-import GuestNameModal from "@/app/components/chat/GuestNameModal";
 import LiveChatWindow from "@/app/components/chat/LiveChatWindow";
 import ChatInputBox from "@/app/components/chat/ChatInputBox";
 import ModerationPanel from "@/app/components/chat/ModerationPanel";
 import { useLiveChat } from "@/app/hooks/useLiveChat";
+
+
+// Form nama inline untuk chat panel di player (harus komponen terpisah agar hooks bisa dipakai)
+function InlineNameForm({ onSubmit }) {
+  const [submitting, setSubmitting] = React.useState(false);
+  const [formErr, setFormErr] = React.useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const val = e.target.elements.nickname.value.trim();
+    if (val.length < 2 || val.length > 30) {
+      setFormErr('Nama minimal 2, maksimal 30 karakter');
+      return;
+    }
+    setSubmitting(true);
+    setFormErr('');
+    const result = await onSubmit(val);
+    if (result?.error) setFormErr(result.error);
+    setSubmitting(false);
+  };
+
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center px-6 gap-4">
+      <p className="font-bold text-gray-800 text-sm text-center">Masukkan nama panggilan kamu</p>
+      <form className="w-full flex flex-col gap-2" onSubmit={handleSubmit}>
+        <input
+          name="nickname"
+          type="text"
+          maxLength={30}
+          placeholder="Contoh: Andi"
+          className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100 transition-all"
+          autoFocus
+          disabled={submitting}
+        />
+        {formErr && <p className="text-xs text-red-500">{formErr}</p>}
+        <button
+          type="submit"
+          disabled={submitting}
+          className="w-full rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-700 transition-all active:scale-95 disabled:opacity-50"
+        >
+          {submitting ? 'Menghubungkan...' : 'Masuk ke Chat'}
+        </button>
+      </form>
+    </div>
+  );
+}
 
 const GlobalAudioPlayer = () => {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -16,11 +61,12 @@ const GlobalAudioPlayer = () => {
   const [isMuted, setIsMuted] = useState(false);
   const [showLiveChat, setShowLiveChat] = useState(false);
   const [guestName, setGuestName] = useState(null);
+  const [roomId, setRoomId] = useState(null);       // untuk cek status live
+  const [chatRoomId, setChatRoomId] = useState(null); // untuk useLiveChat (diset setelah sesi valid)
+  const [isLiveActive, setIsLiveActive] = useState(null); // null=loading, true/false
   
   const [isAdmin, setIsAdmin] = useState(false);
   const [isModerationPanelOpen, setIsModerationPanelOpen] = useState(false);
-
-  const hasMountedRef = useRef(false);
 
   // Ambil nama tersimpan saat refresh + cek admin
   useEffect(() => {
@@ -33,20 +79,25 @@ const GlobalAudioPlayer = () => {
     }
   }, []);
 
-  useEffect(() => {
-    if (!hasMountedRef.current) {
-      hasMountedRef.current = true;
-      return;
-    }
-
-    if (isPlaying) {
+ useEffect(() => {
+  if (isPlaying) {
+    const wasOffAir = sessionStorage.getItem('was_off_air');
+    if (wasOffAir === 'true') {
       localStorage.removeItem('guest_name');
       setGuestName(null);
       setShowLiveChat(false);
+      sessionStorage.removeItem('was_off_air');
     }
-  }, [isPlaying]);
+  } else {
+    const everPlayed = sessionStorage.getItem('ever_played');
+    if (everPlayed === 'true') {
+      sessionStorage.setItem('was_off_air', 'true');
+    }
+  }
+}, [isPlaying]);
 
-  const { messages, sendMessage, activeListeners, activeGuests, deleteMessage, muteGuest } = useLiveChat();
+  // chatRoomId hanya di-pass ke useLiveChat setelah sesi guest valid
+  const { messages, sendMessage, activeListeners, activeGuests, deleteMessage, muteGuest } = useLiveChat(chatRoomId);
 
   const [playerConfig, setPlayerConfig] = useState({
     title: "",
@@ -56,8 +107,13 @@ const GlobalAudioPlayer = () => {
 
   useEffect(() => {
     fetch("/api/player-config")
-      .then((res) => res.json())
+      .then((res) => {
+        const ct = res.headers.get('content-type') || '';
+        if (!res.ok || !ct.includes('application/json')) return null;
+        return res.json();
+      })
       .then((data) => {
+        if (!data) return;
         setPlayerConfig({
           title: data?.title || "",
           subtitle: data?.subtitle || "",
@@ -69,37 +125,40 @@ const GlobalAudioPlayer = () => {
       });
   }, []);
 
-  useEffect(() => {
-    let externalPause = false;
-    const handler = (e) => {
-      const playing = e.detail.isPlaying;
-      setIsPlaying(playing);
-      if (playing) setShowPlayer(true);
-    };
-
-    window.addEventListener("audioStateChanged", handler);
-    const handlePodcastPlay = () => {
-      setIsPlaying(false);
-      setShowPlayer(false);
-      externalPause = true;
-      window.dispatchEvent(new CustomEvent("pauseRequested"));
-    };
-    window.addEventListener("podcastPlayRequested", handlePodcastPlay);
-
-    if (!isPlaying && externalPause) {
-      setShowPlayer(false);
-      externalPause = false;
+ useEffect(() => {
+  let externalPause = false;
+  const handler = (e) => {
+    const playing = e.detail.isPlaying;
+    setIsPlaying(playing);
+    if (playing) {
+      setShowPlayer(true);
+      sessionStorage.setItem('ever_played', 'true'); // ← tambahkan ini
     }
+  };
 
-    if (isPlaying) {
-      window.dispatchEvent(new CustomEvent("radioPlayRequested"));
-    }
+  window.addEventListener("audioStateChanged", handler);
+  const handlePodcastPlay = () => {
+    setIsPlaying(false);
+    setShowPlayer(false);
+    externalPause = true;
+    window.dispatchEvent(new CustomEvent("pauseRequested"));
+  };
+  window.addEventListener("podcastPlayRequested", handlePodcastPlay);
 
-    return () => {
-      window.removeEventListener("audioStateChanged", handler);
-      window.removeEventListener("podcastPlayRequested", handlePodcastPlay);
-    };
-  }, [isPlaying]);
+  if (!isPlaying && externalPause) {
+    setShowPlayer(false);
+    externalPause = false;
+  }
+
+  if (isPlaying) {
+    window.dispatchEvent(new CustomEvent("radioPlayRequested"));
+  }
+
+  return () => {
+    window.removeEventListener("audioStateChanged", handler);
+    window.removeEventListener("podcastPlayRequested", handlePodcastPlay);
+  };
+}, [isPlaying]);
 
   useEffect(() => {
     if (isPlaying) {
@@ -140,13 +199,53 @@ const GlobalAudioPlayer = () => {
     }
   };
 
-  const toggleLiveChat = () => {
+  const toggleLiveChat = async () => {
+    if (!showLiveChat && roomId === null) {
+      // Pertama kali dibuka — fetch active room
+      try {
+        const res = await fetch('/api/live-chat/active-room');
+        const ct = res.headers.get('content-type') || '';
+        if (ct.includes('application/json')) {
+          const data = await res.json();
+          if (data.live && data.roomId) {
+            setRoomId(data.roomId);
+            setIsLiveActive(true);
+          } else {
+            setIsLiveActive(false);
+          }
+        } else {
+          setIsLiveActive(false);
+        }
+      } catch (err) {
+        console.warn('[GlobalAudioPlayer] Gagal cek active room:', err);
+        setIsLiveActive(false);
+      }
+    }
     setShowLiveChat((prev) => !prev);
   };
 
-  const handleNameSubmit = (name) => {
-    localStorage.setItem("guest_name", name);
-    setGuestName(name);
+  const handleNameSubmit = async (name) => {
+    try {
+      const res = await fetch('/api/live-chat/guest-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nickname: name }),
+      });
+      const ct = res.headers.get('content-type') || '';
+      if (!res.ok) {
+        const errData = ct.includes('application/json') ? await res.json() : {};
+        return { error: errData.error || 'Gagal masuk ke chat' };
+      }
+      const data = ct.includes('application/json') ? await res.json() : {};
+      localStorage.setItem('guest_name', name);
+      if (data.sessionId) localStorage.setItem('chat_session_id', data.sessionId);
+      setGuestName(name);
+      // Baru sekarang aktifkan koneksi Pusher + fetch riwayat pesan
+      setChatRoomId(roomId);
+      return { error: null };
+    } catch {
+      return { error: 'Terjadi kesalahan koneksi' };
+    }
   };
 
   const handleSendMessage = (text) => {
@@ -202,19 +301,38 @@ const GlobalAudioPlayer = () => {
                     onClose={() => setIsModerationPanelOpen(false)} 
                   />
                 )}
-                
-                {!guestName ? (
-                  <GuestNameModal onSaveName={handleNameSubmit} />
-                ) : (
-                  <>
-                    <LiveChatWindow 
-                      messages={messages} 
-                      currentUserName={guestName} 
-                      isAdmin={isAdmin}
-                      onDeleteMessage={deleteMessage}
-                    />
-                    <ChatInputBox onSendMessage={handleSendMessage} />
-                  </>
+
+                {/* Saat room belum diketahui (loading) */}
+                {isLiveActive === null && (
+                  <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
+                    <span>Memeriksa status siaran...</span>
+                  </div>
+                )}
+
+                {/* Tidak ada siaran aktif */}
+                {isLiveActive === false && (
+                  <div className="flex-1 flex flex-col items-center justify-center gap-2 px-4 text-center">
+                    <span className="text-2xl">📻</span>
+                    <p className="font-semibold text-gray-700 text-sm">Siaran Belum Dimulai</p>
+                    <p className="text-gray-400 text-xs">Live chat akan tersedia saat kami sedang on air.</p>
+                  </div>
+                )}
+
+                {/* Ada siaran aktif */}
+                {isLiveActive === true && (
+                  !guestName ? (
+                    <InlineNameForm onSubmit={handleNameSubmit} />
+                  ) : (
+                    <>
+                      <LiveChatWindow 
+                        messages={messages} 
+                        currentUserName={guestName} 
+                        isAdmin={isAdmin}
+                        onDeleteMessage={deleteMessage}
+                      />
+                      <ChatInputBox onSendMessage={handleSendMessage} />
+                    </>
+                  )
                 )}
               </div>
             </div>

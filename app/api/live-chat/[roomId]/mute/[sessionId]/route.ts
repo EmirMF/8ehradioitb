@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { ObjectId } from "bson";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/live-chat/auth";
 import { broadcastGuestMuted } from "@/lib/live-chat/pusher";
@@ -32,7 +31,9 @@ export async function POST(_req: Request, { params }: RouteParams) {
   }
   const { admin } = adminCheck;
 
-  if (!ObjectId.isValid(admin.adminId)) {
+  const isValidObjectId = (id: string) => /^[0-9a-f]{24}$/i.test(id);
+
+  if (!isValidObjectId(admin.adminId)) {
     console.error(
       `[live-chat] admin.adminId ("${admin.adminId}") bukan ObjectId valid untuk mutedById.`
     );

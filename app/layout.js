@@ -4,7 +4,7 @@ import "./globals.css";
 import GlobalAudioPlayer from "@/app/components/GlobalAudioPlayer";
 import AuthProvider from "@/app/components/AuthProvider";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 import StructuredData from "@/app/components/StructuredData";
 import ChatWidgetWrapper from "@/app/components/ai/ChatWidgetWrapper";
 

@@ -1,4 +1,4 @@
-import { ObjectId } from "bson";
+import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { broadcastRoomStatus } from "@/lib/live-chat/pusher";
 import type { ChatRoom } from "@prisma/client";
@@ -40,7 +40,7 @@ export async function getOrSyncActiveRoom(): Promise<ChatRoom | null> {
     const newRoom = await prisma.chatRoom.create({
       data: {
         isActive: true,
-        broadcastId: new ObjectId().toHexString(),
+        broadcastId: randomBytes(12).toString("hex"),
       },
     });
 

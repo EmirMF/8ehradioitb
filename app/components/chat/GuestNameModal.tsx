@@ -10,8 +10,9 @@ export default function GuestNameModal(props: GuestNameModalProps) {
   const onSaveName = props.onSaveName;
   const [name, setName] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedName = name.trim();
 
@@ -20,8 +21,42 @@ export default function GuestNameModal(props: GuestNameModalProps) {
       return;
     }
 
-    sessionStorage.setItem('guest_name', trimmedName); 
-    onSaveName(trimmedName);
+    if (trimmedName.length < 2 || trimmedName.length > 30) {
+      setError('Nama panggilan minimal 2 dan maksimal 30 karakter');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch('/api/live-chat/guest-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ nickname: trimmedName }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        setError(data.error || 'Gagal masuk ke chat');
+        return;
+      }
+
+      const data = await response.json();
+
+      // Berhasil
+      sessionStorage.setItem('guest_name', trimmedName);
+      localStorage.setItem('guest_name', trimmedName); // Sinkronisasi dengan localStorage
+      localStorage.setItem('chat_session_id', data.sessionId); // Simpan sessionId untuk pengecekan mute client-side
+      onSaveName(trimmedName);
+    } catch (err) {
+      setError('Terjadi kesalahan koneksi ke server');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -46,6 +81,7 @@ export default function GuestNameModal(props: GuestNameModalProps) {
             className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-gray-900 placeholder-gray-400 outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-200 transition-all"
             autoFocus
             maxLength={30}
+            disabled={loading}
           />
 
           {error && (
@@ -54,9 +90,10 @@ export default function GuestNameModal(props: GuestNameModalProps) {
 
           <button
             type="submit"
-            className="mt-4 w-full rounded-lg bg-gray-900 px-4 py-3 font-semibold text-white transition-all hover:bg-gray-700 active:scale-95"
+            disabled={loading}
+            className="mt-4 w-full rounded-lg bg-gray-900 px-4 py-3 font-semibold text-white transition-all hover:bg-gray-700 active:scale-95 disabled:opacity-50"
           >
-            Masuk ke Chat
+            {loading ? 'Menghubungkan...' : 'Masuk ke Chat'}
           </button>
         </form>
       </div>

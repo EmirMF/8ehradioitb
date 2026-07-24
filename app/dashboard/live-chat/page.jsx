@@ -3,117 +3,55 @@ import { useSession } from "next-auth/react";
 import { useEffect, useState, useCallback } from "react";
 import { FiTrash2, FiVolumeX, FiVolume2, FiRefreshCw, FiUsers } from "react-icons/fi";
 import { hasAnyRole } from "@/lib/roleUtils";
+import { useLiveChat } from "@/app/hooks/useLiveChat";
 
 export default function LiveChatDashboardPage() {
   const { data: session, status } = useSession();
-  const [messages, setMessages] = useState([]);
-  const [activeListeners, setActiveListeners] = useState(0);
-  const [activeGuests, setActiveGuests] = useState([]);
-  const [isConnected, setIsConnected] = useState(false);
-  const [mutedList, setMutedList] = useState([]);
+  const [roomId, setRoomId] = useState(null);
+  const [isLive, setIsLive] = useState(null); // null = loading, false = not live, true = live
 
   const isAdmin =
     session && hasAnyRole(session.user.role, ["DEVELOPER", "TECHNIC"]);
 
-  // Connect to SSE stream
+  // Fetch active room
   useEffect(() => {
     if (!isAdmin) return;
 
-    // Fetch existing messages
-    fetch("/api/chat/messages")
+    fetch("/api/live-chat/active-room")
       .then((res) => res.json())
       .then((data) => {
-        if (data.messages && data.messages.length > 0) {
-          setMessages(
-            data.messages.map((m) => ({
-              ...m,
-              deleted: m.deleted || false,
-            }))
-          );
+        setIsLive(data.live);
+        if (data.live) {
+          setRoomId(data.roomId);
         }
       })
-      .catch((err) => console.error("Gagal memuat riwayat pesan:", err));
-
-    const sessionId = "admin-dashboard-" + Date.now();
-    const eventSource = new EventSource(
-      `/api/chat/stream?sessionId=${sessionId}&name=Admin`
-    );
-
-    eventSource.onopen = () => setIsConnected(true);
-
-    eventSource.onmessage = (event) => {
-      try {
-        const parsed = JSON.parse(event.data);
-
-        if (parsed.type === "delete_message") {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === parsed.messageId
-                ? { ...m, deleted: true }
-                : m
-            )
-          );
-          return;
-        }
-
-        if (parsed.type === "system_event") {
-          setActiveListeners(parsed.activeListeners || 0);
-          setActiveGuests(parsed.activeGuests || []);
-          return;
-        }
-
-        const messageData =
-          parsed.type === "new_message" ? parsed.message : parsed;
-        if (!messageData || !messageData.text) return;
-
-        setMessages((prev) => {
-          if (prev.some((m) => m.id === messageData.id)) return prev;
-          return [...prev, { ...messageData, deleted: false }];
-        });
-      } catch (err) {
-        console.error("SSE parse error:", err);
-      }
-    };
-
-    eventSource.onerror = () => setIsConnected(false);
-
-    return () => eventSource.close();
+      .catch((err) => {
+        console.error("Gagal memverifikasi status siaran:", err);
+        setIsLive(false);
+      });
   }, [isAdmin]);
 
+  const {
+    messages,
+    isConnected,
+    activeListeners,
+    activeGuests,
+    deleteMessage,
+    muteGuest
+  } = useLiveChat(roomId);
+
   const handleDeleteMessage = useCallback(async (messageId) => {
-    try {
-      await fetch(`/api/chat/delete?id=${messageId}`, { method: "DELETE" });
-    } catch (err) {
-      console.error("Delete failed:", err);
-    }
-  }, []);
+    await deleteMessage(messageId);
+  }, [deleteMessage]);
 
   const handleMute = useCallback(async (guestSessionId, guestName) => {
     if (!confirm(`Mute "${guestName}"? User ini tidak akan bisa mengirim pesan.`)) return;
-    try {
-      await fetch("/api/chat/mute", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: guestSessionId, action: "mute" }),
-      });
-      setMutedList((prev) => [...prev, guestSessionId]);
-    } catch (err) {
-      console.error("Mute failed:", err);
-    }
-  }, []);
+    await muteGuest(guestSessionId, "mute");
+  }, [muteGuest]);
 
   const handleUnmute = useCallback(async (guestSessionId) => {
-    try {
-      await fetch("/api/chat/mute", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: guestSessionId, action: "unmute" }),
-      });
-      setMutedList((prev) => prev.filter((id) => id !== guestSessionId));
-    } catch (err) {
-      console.error("Unmute failed:", err);
-    }
-  }, []);
+    await muteGuest(guestSessionId, "unmute");
+  }, [muteGuest]);
 
   const formatTime = (timestamp) => {
     return new Date(timestamp).toLocaleTimeString("id-ID", {
@@ -123,7 +61,7 @@ export default function LiveChatDashboardPage() {
     });
   };
 
-  if (status === "loading") {
+  if (status === "loading" || (isAdmin && isLive === null)) {
     return <div className="p-8 text-center font-body">Loading...</div>;
   }
 
@@ -131,6 +69,18 @@ export default function LiveChatDashboardPage() {
     return (
       <div className="p-8 text-center font-body text-red-600">
         Access Denied.
+      </div>
+    );
+  }
+
+  if (!isLive) {
+    return (
+      <div className="max-w-6xl mx-auto p-8 text-center bg-white rounded-xl shadow-md border border-gray-200">
+        <span className="text-4xl mb-3 block">📡</span>
+        <h2 className="text-lg font-bold text-gray-800 mb-1">Siaran Belum Aktif</h2>
+        <p className="text-sm text-gray-500 font-body">
+          Tidak ada room chat aktif saat ini. Aktifkan siaran melalui panel kontrol siaran.
+        </p>
       </div>
     );
   }
@@ -254,7 +204,7 @@ export default function LiveChatDashboardPage() {
               </p>
             ) : (
               activeGuests.map((guest, idx) => {
-                const isMuted = mutedList.includes(guest.sessionId);
+                const isMuted = guest.isMuted;
                 return (
                   <div
                     key={`${guest.sessionId}-${idx}`}

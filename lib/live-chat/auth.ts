@@ -1,7 +1,7 @@
 import { getIronSession, IronSessionData } from "iron-session";
 import { cookies } from "next/headers";
 import { getServerSession, type AuthOptions } from "next-auth";
-import { authOptions as rawAuthOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions as rawAuthOptions } from "@/app/api/auth/[...nextauth]/options";
 import { hasAnyRole } from "@/lib/roleUtils";
 import { prisma } from "@/lib/prisma";
 import type { GuestSession } from "@prisma/client";
