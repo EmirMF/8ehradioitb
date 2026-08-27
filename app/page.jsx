@@ -7,7 +7,6 @@ import NewsList from "@/app/components/home/NewsList";
 import TuneTracker from "@/app/components/home/TuneTracker";
 import ProgramsSection from "@/app/components/home/ProgramsSection";
 import { prisma } from "@/lib/prisma";
-import LiveBanner from "@/app/components/home/LiveBanner";
 
 const BoardSliderAnnouncer = dynamic(
   () => import("@/app/components/BoardSliderAnnouncer"),
@@ -103,7 +102,6 @@ export default async function Home() {
   return (
     <main className="flex flex-col min-h-screen bg-white font-sans">
       <Navbar />
-      <LiveBanner />
       <HeroSection />
       <PodcastList podcasts={serializedPodcasts} />
       <NewsList newsItems={serializedNews} />

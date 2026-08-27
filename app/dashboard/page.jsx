@@ -124,138 +124,137 @@ export default function DashboardHome() {
   const isLoadingStats = !posts && !podcasts && !links;
 
   return (
-    <div></div>
-    // <div className="space-y-8">
-    //   {/* Header */}
-    //   <div>
-    //     <h1 className="text-3xl md:text-4xl font-heading font-bold text-gray-800">
-    //       Welcome to the Studio,{" "}
-    //       <span className="text-red-600">
-    //         {session?.user?.name?.split(" ")[0]}
-    //       </span>
-    //       !
-    //     </h1>
-    //     <p className="text-gray-600 font-body mt-2">
-    //       Here's a snapshot of your content and performance. Let's make
-    //       something great today.
-    //     </p>
-    //   </div>
+    <div className="space-y-8">
+      {/* Header */}
+      <div>
+        <h1 className="text-3xl md:text-4xl font-heading font-bold text-gray-800">
+          Welcome to the Studio,{" "}
+          <span className="text-red-600">
+            {session?.user?.name?.split(" ")[0]}
+          </span>
+          !
+        </h1>
+        <p className="text-gray-600 font-body mt-2">
+          Here's a snapshot of your content and performance. Let's make
+          something great today.
+        </p>
+      </div>
 
-    //   {/* New Documentation Card */}
-    //   <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 flex items-start gap-4">
-    //     <FiInfo size={40} className="text-blue-500 flex-shrink-0 mt-1" />
-    //     <div>
-    //       <h3 className="font-heading font-bold">Panduan Dokumentasi</h3>
-    //       <p className="font-body text-sm mt-1">
-    //         Kami telah menyiapkan panduan dokumentasi website 8EH Radio ITB untuk membantu Anda menggunakan dashboard ini dengan lebih mudah.
-    //       </p>
-    //       <a
-    //         href="https://docs.google.com/document/d/1kScboeFQNPDu9YNwrt6mUYPlhVXf_yHmCDyn0AJtvdE/edit?usp=sharing"
-    //         target="_blank"
-    //         rel="noopener noreferrer"
-    //         className="font-body font-semibold text-blue-600 hover:underline mt-2 inline-block"
-    //       >
-    //         Akses Dokumentasi di sini →
-    //       </a>
-    //     </div>
-    //   </div>
+      {/* New Documentation Card */}
+      <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 flex items-start gap-4">
+        <FiInfo size={40} className="text-blue-500 flex-shrink-0 mt-1" />
+        <div>
+          <h3 className="font-heading font-bold">Panduan Dokumentasi</h3>
+          <p className="font-body text-sm mt-1">
+            Kami telah menyiapkan panduan dokumentasi website 8EH Radio ITB untuk membantu Anda menggunakan dashboard ini dengan lebih mudah.
+          </p>
+          <a
+            href="https://docs.google.com/document/d/1kScboeFQNPDu9YNwrt6mUYPlhVXf_yHmCDyn0AJtvdE/edit?usp=sharing"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-body font-semibold text-blue-600 hover:underline mt-2 inline-block"
+          >
+            Akses Dokumentasi di sini →
+          </a>
+        </div>
+      </div>
 
-    //   {/* Grid Statistik */}
-    //   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-    //     <StatCard
-    //       icon={<FiEdit size={24} />}
-    //       title="Blog Posts"
-    //       value={totalPosts}
-    //       isLoading={!posts}
-    //       color="blue"
-    //       href="/dashboard/blog"
-    //     />
-    //     <StatCard
-    //       icon={<FiMic size={24} />}
-    //       title="Podcasts"
-    //       value={totalPodcasts}
-    //       isLoading={!podcasts}
-    //       color="green"
-    //       href="/dashboard/podcast"
-    //     />
-    //     <StatCard
-    //       icon={<FiLink size={24} />}
-    //       title="Short Links"
-    //       value={totalLinks}
-    //       isLoading={!links}
-    //       color="purple"
-    //       href="/dashboard/links"
-    //     />
-    //     <StatCard
-    //       icon={<FiBarChart2 size={24} />}
-    //       title="Total Clicks"
-    //       value={totalClicks}
-    //       isLoading={!links}
-    //       color="red"
-    //       href="/dashboard/links"
-    //     />
-    //   </div>
+      {/* Grid Statistik */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StatCard
+          icon={<FiEdit size={24} />}
+          title="Blog Posts"
+          value={totalPosts}
+          isLoading={!posts}
+          color="blue"
+          href="/dashboard/blog"
+        />
+        <StatCard
+          icon={<FiMic size={24} />}
+          title="Podcasts"
+          value={totalPodcasts}
+          isLoading={!podcasts}
+          color="green"
+          href="/dashboard/podcast"
+        />
+        <StatCard
+          icon={<FiLink size={24} />}
+          title="Short Links"
+          value={totalLinks}
+          isLoading={!links}
+          color="purple"
+          href="/dashboard/links"
+        />
+        <StatCard
+          icon={<FiBarChart2 size={24} />}
+          title="Total Clicks"
+          value={totalClicks}
+          isLoading={!links}
+          color="red"
+          href="/dashboard/links"
+        />
+      </div>
 
-    //   {/* Aksi Cepat & Aktivitas Terbaru */}
-    //   <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-    //     <div className="lg:col-span-1 bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-    //       <h2 className="font-heading font-bold text-xl text-gray-800 mb-4">
-    //         Quick Actions
-    //       </h2>
-    //       <div className="space-y-3">
-    //         {visibleActions.map((action, index) => (
-    //           <QuickAction key={index} {...action} />
-    //         ))}
-    //       </div>
-    //     </div>
+      {/* Aksi Cepat & Aktivitas Terbaru */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-1 bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+          <h2 className="font-heading font-bold text-xl text-gray-800 mb-4">
+            Quick Actions
+          </h2>
+          <div className="space-y-3">
+            {visibleActions.map((action, index) => (
+              <QuickAction key={index} {...action} />
+            ))}
+          </div>
+        </div>
 
-    //     <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-    //       <h2 className="font-heading font-bold text-xl text-gray-800 mb-4 flex items-center gap-2">
-    //         <FiActivity /> Recent Activity
-    //       </h2>
-    //       {isLoadingStats ? (
-    //         <div className="space-y-3">
-    //           <div className="h-6 w-3/4 bg-gray-200 rounded-md animate-pulse"></div>
-    //           <div className="h-4 w-1/2 bg-gray-200 rounded-md animate-pulse"></div>
-    //         </div>
-    //       ) : latestPost ? (
-    //         <div className="group">
-    //           <p className="text-sm font-body text-gray-500 mb-1">
-    //             Latest Blog Post
-    //           </p>
-    //           <h3 className="font-heading font-semibold text-lg text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
-    //             {latestPost.title}
-    //           </h3>
-    //           <div className="flex items-center justify-between">
-    //             <p className="text-sm font-body text-gray-500">
-    //               Published on{" "}
-    //               {new Date(latestPost.createdAt).toLocaleDateString("en-US", {
-    //                 year: "numeric",
-    //                 month: "long",
-    //                 day: "numeric",
-    //               })}
-    //             </p>
-    //             <Link
-    //               href={`/blog/${latestPost.slug}`}
-    //               target="_blank"
-    //               className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:underline cursor-pointer"
-    //             >
-    //               View Post <FiArrowRight />
-    //             </Link>
-    //           </div>
-    //         </div>
-    //       ) : (
-    //         <div className="text-center py-8">
-    //           <p className="font-body text-gray-500">
-    //             No recent activity to show.
-    //           </p>
-    //           <p className="font-body text-gray-400 text-sm mt-1">
-    //             Create a new post to get started!
-    //           </p>
-    //         </div>
-    //       )}
-    //     </div>
-    //   </div>
-    // </div>
+        <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+          <h2 className="font-heading font-bold text-xl text-gray-800 mb-4 flex items-center gap-2">
+            <FiActivity /> Recent Activity
+          </h2>
+          {isLoadingStats ? (
+            <div className="space-y-3">
+              <div className="h-6 w-3/4 bg-gray-200 rounded-md animate-pulse"></div>
+              <div className="h-4 w-1/2 bg-gray-200 rounded-md animate-pulse"></div>
+            </div>
+          ) : latestPost ? (
+            <div className="group">
+              <p className="text-sm font-body text-gray-500 mb-1">
+                Latest Blog Post
+              </p>
+              <h3 className="font-heading font-semibold text-lg text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
+                {latestPost.title}
+              </h3>
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-body text-gray-500">
+                  Published on{" "}
+                  {new Date(latestPost.createdAt).toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </p>
+                <Link
+                  href={`/blog/${latestPost.slug}`}
+                  target="_blank"
+                  className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:underline cursor-pointer"
+                >
+                  View Post <FiArrowRight />
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="font-body text-gray-500">
+                No recent activity to show.
+              </p>
+              <p className="font-body text-gray-400 text-sm mt-1">
+                Create a new post to get started!
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
