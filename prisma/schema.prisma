@@ -309,6 +309,8 @@ model StreamConfig {
   defaultUrl  String
   fallbackUrl String
   onAir       Boolean  @default(true)
+  liveChatEnabled Boolean @default(true)
+  songRequestEnabled Boolean @default(true)
   updatedAt   DateTime @updatedAt
 }
 

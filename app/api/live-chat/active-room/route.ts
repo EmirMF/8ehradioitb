@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 import { getOrSyncActiveRoom } from "@/lib/live-chat/room";
 
 /**
@@ -17,8 +18,20 @@ export async function GET() {
   const room = await getOrSyncActiveRoom();
 
   if (!room) {
-    return NextResponse.json({ live: false, roomId: null });
+    return NextResponse.json({
+      live: false,
+      roomId: null,
+      liveChatEnabled: false,
+      songRequestEnabled: false,
+    });
   }
 
-  return NextResponse.json({ live: true, roomId: room.id });
+  const config = await prisma.streamConfig.findFirst();
+
+  return NextResponse.json({
+    live: true,
+    roomId: room.id,
+    liveChatEnabled: config?.liveChatEnabled !== false,
+    songRequestEnabled: config?.songRequestEnabled !== false,
+  });
 }

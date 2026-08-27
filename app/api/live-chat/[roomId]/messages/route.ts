@@ -24,6 +24,11 @@ interface RouteParams {
 export async function GET(req: NextRequest, { params }: RouteParams) {
   const { roomId } = await params;
 
+  const config = await prisma.streamConfig.findFirst();
+  if (config?.liveChatEnabled === false) {
+    return NextResponse.json({ error: "Live chat sedang dinonaktifkan" }, { status: 403 });
+  }
+
   const guestCheck = await requireGuestSession();
   const adminCheck = guestCheck.ok ? null : await requireAdmin();
   if (!guestCheck.ok && !adminCheck?.ok) {
@@ -79,6 +84,11 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
  */
 export async function POST(req: NextRequest, { params }: RouteParams) {
   const { roomId } = await params;
+
+  const config = await prisma.streamConfig.findFirst();
+  if (config?.liveChatEnabled === false) {
+    return NextResponse.json({ error: "Live chat sedang dinonaktifkan" }, { status: 403 });
+  }
 
   const sessionCheck = await requireGuestSession();
   if (!sessionCheck.ok) {

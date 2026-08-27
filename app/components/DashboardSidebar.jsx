@@ -6,11 +6,12 @@ import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { hasAnyRole } from "@/lib/roleUtils";
 import ButtonPrimary from "./ButtonPrimary";
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { FiHome, FiEdit, FiMic, FiLink, FiUsers, FiCheckSquare, FiLogOut, FiSettings, FiBarChart2, FiMusic, FiChevronLeft, FiChevronRight, FiVideo, FiClipboard, FiDatabase, FiMessageCircle } from 'react-icons/fi';
 
 const navItems = [
   { href: "/dashboard", label: "Home", icon: FiHome, roles: ["MUSIC", "DEVELOPER", "TECHNIC", "REPORTER", "KRU"] },
+  { href: "/dashboard/song-requests", label: "Song Requests", icon: FiMusic, roles: ["MUSIC", "DEVELOPER", "TECHNIC"], showPendingBadge: true },
   { href: "/dashboard/blog", label: "Blog", icon: FiEdit, roles: ["DEVELOPER", "REPORTER"] },
   { href: "/dashboard/podcast", label: "Podcast", icon: FiMic, roles: ["DEVELOPER", "MUSIC"] },
   { href: "/dashboard/links", label: "Links & QR Codes", icon: FiLink, roles: ["MUSIC", "DEVELOPER", "TECHNIC", "REPORTER", "KRU"] },
@@ -30,6 +31,25 @@ export default function DashboardSidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const [isExpanded, setIsExpanded] = useState(true);
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    if (!hasAnyRole(session?.user?.role, ["MUSIC", "DEVELOPER", "TECHNIC"])) return;
+
+    const fetchPending = async () => {
+      try {
+        const res = await fetch("/api/song-request?status=PENDING");
+        const data = await res.json();
+        setPendingCount(data.requests?.length || 0);
+      } catch {
+        setPendingCount(0);
+      }
+    };
+
+    fetchPending();
+    const interval = setInterval(fetchPending, 30000);
+    return () => clearInterval(interval);
+  }, [session?.user?.role]);
 
   const visibleNavItems = navItems.filter(item =>
     hasAnyRole(session?.user?.role, item.roles)
@@ -52,19 +72,38 @@ export default function DashboardSidebar() {
       </div>
 
       <nav className="flex-1 flex flex-col space-y-2 mt-4 px-4">
-        {visibleNavItems.map(({ href, label, icon: Icon }) => {
+        {visibleNavItems.map(({ href, label, icon: Icon, showPendingBadge }) => {
           const isActive = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
+          const showBadge = showPendingBadge && pendingCount > 0;
           return (
             <Link
               key={href}
               href={href}
               title={label}
               className={`flex items-center space-x-4 p-3 rounded-lg transition-colors cursor-pointer ${
-                isActive ? 'bg-red-500 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'
+                isActive ? 'bg-[#D83232] text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'
               } ${!isExpanded ? 'justify-center' : ''}`}
             >
-              <Icon size={20} />
-              {isExpanded && <span className="font-body font-medium">{label}</span>}
+              <div className="relative flex-shrink-0">
+                <Icon size={20} />
+                {showBadge && !isExpanded && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-[#D83232] text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                    {pendingCount > 9 ? "9+" : pendingCount}
+                  </span>
+                )}
+              </div>
+              {isExpanded && (
+                <div className="flex items-center justify-between flex-1 min-w-0">
+                  <span className="font-body font-medium truncate">{label}</span>
+                  {showBadge && (
+                    <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ml-2 ${
+                      isActive ? 'bg-white text-[#D83232]' : 'bg-[#D83232] text-white'
+                    }`}>
+                      {pendingCount > 9 ? "9+" : pendingCount}
+                    </span>
+                  )}
+                </div>
+              )}
             </Link>
           );
         })}

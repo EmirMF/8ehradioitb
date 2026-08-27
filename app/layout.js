@@ -7,6 +7,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 import StructuredData from "@/app/components/StructuredData";
 import ChatWidgetWrapper from "@/app/components/ai/ChatWidgetWrapper";
+import ToastProvider from "@/app/components/ToastProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -158,6 +159,7 @@ export default async function RootLayout({ children }) {
         <AuthProvider session={session}>
           {children}
           <GlobalAudioPlayer />
+          <ToastProvider />
         </AuthProvider>
         {/* <ChatWidgetWrapper /> */}
       </body>

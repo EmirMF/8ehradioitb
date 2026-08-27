@@ -20,6 +20,7 @@ import { getOrSyncActiveRoom } from "@/lib/live-chat/room";
  * memang belum berguna untuk kirim pesan.
  */
 export async function POST(req: NextRequest) {
+  const requestLimit = Number(process.env.SONG_REQUEST_LIMIT_PER_SESSION || 3);
   let body: unknown;
   try {
     body = await req.json();
@@ -27,7 +28,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Body harus JSON valid" }, { status: 400 });
   }
 
-  const nickname = sanitizeNickname((body as Record<string, unknown>)?.nickname);
+  const rawName =
+    (body as Record<string, unknown>)?.nickname ??
+    (body as Record<string, unknown>)?.guestName;
+  const nickname = sanitizeNickname(rawName);
   if (!nickname) {
     return NextResponse.json(
       { error: "Nama panggilan wajib diisi, minimal 2 dan maksimal 30 karakter" },
@@ -73,6 +77,9 @@ export async function POST(req: NextRequest) {
       guestName: guestSession.guestName,
       roomId: room?.id ?? null,
       live: !!room,
+      requestCount: guestSession.requestCount,
+      requestLimit,
+      remainingRequests: requestLimit,
     },
     { status: 201 }
   );
@@ -86,20 +93,21 @@ export async function POST(req: NextRequest) {
  * modal nama panggilan perlu ditampilkan, atau guest sudah punya sesi valid.
  */
 export async function GET() {
+  const requestLimit = Number(process.env.SONG_REQUEST_LIMIT_PER_SESSION || 3);
   const sessionId = await getSessionIdFromCookie();
   if (!sessionId) {
-    return NextResponse.json({ active: false });
+    return NextResponse.json({ active: false, requestLimit });
   }
 
   const session = await prisma.guestSession.findUnique({ where: { sessionId } });
 
   if (!session || session.expiresAt.getTime() < Date.now()) {
-    return NextResponse.json({ active: false });
+    return NextResponse.json({ active: false, requestLimit });
   }
 
   const room = await getOrSyncActiveRoom();
   if (!room || session.broadcastId !== room.broadcastId) {
-    return NextResponse.json({ active: false });
+    return NextResponse.json({ active: false, requestLimit });
   }
 
   return NextResponse.json({
@@ -109,5 +117,8 @@ export async function GET() {
     isMuted: session.isMuted,
     roomId: room.id,
     live: true,
+    requestCount: session.requestCount,
+    requestLimit,
+    remainingRequests: Math.max(0, requestLimit - session.requestCount),
   });
 }

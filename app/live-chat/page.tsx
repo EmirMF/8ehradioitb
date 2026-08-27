@@ -11,6 +11,7 @@ import ChatInputBox from '../components/chat/ChatInputBox';
 export default function LiveChatPage() {
   const [roomId, setRoomId] = useState<string | null>(null);
   const [isLive, setIsLive] = useState<boolean | null>(null); // null = loading, false = not live, true = live
+  const [liveChatEnabled, setLiveChatEnabled] = useState(true);
   const [userName, setUserName] = useState<string | null>(null);
 
   const { 
@@ -40,7 +41,8 @@ export default function LiveChatPage() {
         const roomData = await safeJson(roomRes);
         
         setIsLive(roomData.live);
-        if (roomData.live && roomData.roomId) {
+        setLiveChatEnabled(roomData.liveChatEnabled !== false);
+        if (roomData.live && roomData.liveChatEnabled !== false && roomData.roomId) {
           setRoomId(roomData.roomId);
 
           // Cek guest session jika room active
@@ -72,10 +74,12 @@ export default function LiveChatPage() {
     const pusher = new Pusher(pusherKey, { cluster: pusherCluster, forceTLS: true });
     const channel = pusher.subscribe('live-status');
 
-    channel.bind('live-started', async (data: { roomId?: string | null }) => {
+    channel.bind('live-started', async (data: { roomId?: string | null; liveChatEnabled?: boolean }) => {
+      setLiveChatEnabled(data.liveChatEnabled !== false);
       if (!data.roomId) return;
       setRoomId(data.roomId);
       setIsLive(true);
+      if (data.liveChatEnabled === false) return;
 
       const res = await fetch('/api/live-chat/guest-session');
       const sessionData = await res.json().catch(() => ({}));
@@ -86,6 +90,7 @@ export default function LiveChatPage() {
 
     channel.bind('live-ended', () => {
       setIsLive(false);
+      setLiveChatEnabled(false);
       setRoomId(null);
       setUserName(null);
     });
@@ -136,11 +141,15 @@ export default function LiveChatPage() {
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#D83232] mb-2"></div>
           <p className="text-sm">Memeriksa status siaran...</p>
         </div>
-      ) : !isLive || roomInactive ? (
+      ) : !isLive || roomInactive || !liveChatEnabled ? (
         <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-gray-400 bg-gray-50">
-          <h2 className="text-lg font-bold text-gray-900 mb-1">Siaran Belum Dimulai</h2>
+          <h2 className="text-lg font-bold text-gray-900 mb-1">
+            {isLive && !liveChatEnabled ? "Live Chat Nonaktif" : "Siaran Belum Dimulai"}
+          </h2>
             <p className="text-sm max-w-xs text-gray-500">
-            Live chat akan tersedia kembali saat siaran berikutnya dimulai.
+            {isLive && !liveChatEnabled
+              ? "Live chat sedang tidak dibuka untuk sesi siaran ini."
+              : "Live chat akan tersedia kembali saat siaran berikutnya dimulai."}
           </p>
         </div>
       ) : (

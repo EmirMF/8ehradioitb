@@ -2,11 +2,12 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Pusher from "pusher-js";
-import { FiMessageCircle } from "react-icons/fi";
+import { FiMessageCircle, FiMusic } from "react-icons/fi";
 import ButtonPrimary from "@/app/components/ButtonPrimary";
 
 import LiveChatWindow from "@/app/components/chat/LiveChatWindow";
 import ChatInputBox from "@/app/components/chat/ChatInputBox";
+import RequestLaguModal from "@/app/components/RequestLaguModal";
 import { useLiveChat } from "@/app/hooks/useLiveChat";
 
 
@@ -69,6 +70,11 @@ const GlobalAudioPlayer = () => {
   const [error, setError] = useState("");
   const [isMuted, setIsMuted] = useState(false);
   const [showLiveChat, setShowLiveChat] = useState(false);
+  const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+  const [features, setFeatures] = useState({
+    liveChatEnabled: true,
+    songRequestEnabled: true,
+  });
   const [guestName, setGuestName] = useState(null);
   const [roomId, setRoomId] = useState(null);       // untuk cek status live
   const [chatRoomId, setChatRoomId] = useState(null); // untuk useLiveChat (diset setelah sesi valid)
@@ -84,11 +90,21 @@ const GlobalAudioPlayer = () => {
 
     channel.bind('live-started', (data) => {
       if (!data.roomId) return;
+      window.dispatchEvent(new CustomEvent("onAirChanged", { detail: { onAir: true, ...data } }));
       setRoomId(data.roomId);
+      setFeatures({
+        liveChatEnabled: data.liveChatEnabled !== false,
+        songRequestEnabled: data.songRequestEnabled !== false,
+      });
       if (showLiveChat) setIsLiveActive(true);
     });
 
-    channel.bind('live-ended', () => {
+    channel.bind('live-ended', (data) => {
+      window.dispatchEvent(new CustomEvent("onAirChanged", { detail: { onAir: false, ...data } }));
+      setFeatures({
+        liveChatEnabled: data?.liveChatEnabled !== false,
+        songRequestEnabled: data?.songRequestEnabled !== false,
+      });
       clearStoredChatSession();
       setGuestName(null);
       setRoomId(null);
@@ -102,6 +118,39 @@ const GlobalAudioPlayer = () => {
       pusher.disconnect();
     };
   }, [showLiveChat]);
+
+  useEffect(() => {
+    if (!features.liveChatEnabled) {
+      setShowLiveChat(false);
+      setIsLiveActive(false);
+    }
+    if (!features.songRequestEnabled) {
+      setIsRequestModalOpen(false);
+    }
+  }, [features.liveChatEnabled, features.songRequestEnabled]);
+
+  useEffect(() => {
+    const openRequest = () => setIsRequestModalOpen(true);
+    const syncGuestSession = (event) => {
+      const data = event.detail || {};
+      if (!data.guestName) return;
+      localStorage.setItem('guest_name', data.guestName);
+      if (data.sessionId) localStorage.setItem('chat_session_id', data.sessionId);
+      setGuestName(data.guestName);
+      if (data.roomId) {
+        setRoomId(data.roomId);
+        setChatRoomId(data.roomId);
+        setIsLiveActive(true);
+      }
+    };
+
+    window.addEventListener("openRequestLagu", openRequest);
+    window.addEventListener("guestSessionChanged", syncGuestSession);
+    return () => {
+      window.removeEventListener("openRequestLagu", openRequest);
+      window.removeEventListener("guestSessionChanged", syncGuestSession);
+    };
+  }, []);
 
  useEffect(() => {
   if (isPlaying) {
@@ -155,6 +204,18 @@ const GlobalAudioPlayer = () => {
       .catch(() => {
         setPlayerConfig({ title: "", subtitle: "", coverImage: "" });
       });
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/stream-config")
+      .then((res) => res.json())
+      .then((data) => {
+        setFeatures({
+          liveChatEnabled: data?.liveChatEnabled !== false,
+          songRequestEnabled: data?.songRequestEnabled !== false,
+        });
+      })
+      .catch(() => {});
   }, []);
 
  useEffect(() => {
@@ -242,7 +303,11 @@ const GlobalAudioPlayer = () => {
           const data = await res.json();
           if (data.live && data.roomId) {
             setRoomId(data.roomId);
-            setIsLiveActive(true);
+            setFeatures({
+              liveChatEnabled: data.liveChatEnabled !== false,
+              songRequestEnabled: data.songRequestEnabled !== false,
+            });
+            setIsLiveActive(data.liveChatEnabled !== false);
 
             const sessionRes = await fetch('/api/live-chat/guest-session');
             const sessionCt = sessionRes.headers.get('content-type') || '';
@@ -264,6 +329,10 @@ const GlobalAudioPlayer = () => {
             setGuestName(null);
             setRoomId(null);
             setChatRoomId(null);
+            setFeatures({
+              liveChatEnabled: data.liveChatEnabled !== false,
+              songRequestEnabled: data.songRequestEnabled !== false,
+            });
             setIsLiveActive(false);
           }
         } else {
@@ -415,11 +484,16 @@ const GlobalAudioPlayer = () => {
                   </p>
                 </div>
                 
-                <button type="button" onClick={toggleLiveChat} className={`md:hidden w-9 h-9 rounded-full flex items-center justify-center transition-all flex-shrink-0 ${showLiveChat ? "bg-gray-900 text-white" : "ring-1 ring-gray-300 hover:ring-gray-900 text-gray-700"}`} aria-label="Buka live chat">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-4.5 h-4.5">
-                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
-                  </svg>
-                </button>
+                {features.songRequestEnabled && (
+                  <button type="button" onClick={() => setIsRequestModalOpen(true)} className="md:hidden w-9 h-9 rounded-full ring-1 ring-gray-300 hover:ring-[#D83232] text-gray-700 hover:text-[#D83232] flex items-center justify-center transition-all flex-shrink-0" aria-label="Request lagu" title="Request lagu">
+                    <FiMusic size={18} />
+                  </button>
+                )}
+                {features.liveChatEnabled && (
+                  <button type="button" onClick={toggleLiveChat} className={`md:hidden w-9 h-9 rounded-full flex items-center justify-center transition-all flex-shrink-0 ${showLiveChat ? "bg-gray-900 text-white" : "ring-1 ring-gray-300 hover:ring-gray-900 text-gray-700"}`} aria-label="Buka live chat" title="Live chat">
+                    <FiMessageCircle size={18} />
+                  </button>
+                )}
               </div>
 
               <div className="hidden md:flex flex-1 flex-col items-center justify-center mx-2 min-w-0">
@@ -460,15 +534,23 @@ const GlobalAudioPlayer = () => {
                   )}
                 </button>
                 <input type="range" min="0" max="1" step="0.1" value={volume} onChange={handleVolumeChange} className="w-20 md:w-24 h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-800" />
-                <button type="button" onClick={toggleLiveChat} className={`w-9 h-9 rounded-full flex items-center justify-center transition-all flex-shrink-0 ${showLiveChat ? "bg-gray-900 text-white" : "ring-1 ring-gray-300 hover:ring-gray-900 text-gray-700"}`} aria-label="Buka live chat">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-4.5 h-4.5">
-                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
-                  </svg>
-                </button>
+                {features.songRequestEnabled && (
+                  <button type="button" onClick={() => setIsRequestModalOpen(true)} className="w-9 h-9 rounded-full ring-1 ring-gray-300 hover:ring-[#D83232] text-gray-700 hover:text-[#D83232] flex items-center justify-center transition-all flex-shrink-0" aria-label="Request lagu" title="Request lagu">
+                    <FiMusic size={18} />
+                  </button>
+                )}
+                {features.liveChatEnabled && (
+                  <button type="button" onClick={toggleLiveChat} className={`w-9 h-9 rounded-full flex items-center justify-center transition-all flex-shrink-0 ${showLiveChat ? "bg-gray-900 text-white" : "ring-1 ring-gray-300 hover:ring-gray-900 text-gray-700"}`} aria-label="Buka live chat" title="Live chat">
+                    <FiMessageCircle size={18} />
+                  </button>
+                )}
               </div>
             </div>
           </div>
         </div>
+      )}
+      {features.songRequestEnabled && (
+        <RequestLaguModal isOpen={isRequestModalOpen} onClose={() => setIsRequestModalOpen(false)} />
       )}
     </>
   );
