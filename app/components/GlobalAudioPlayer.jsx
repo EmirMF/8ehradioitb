@@ -562,8 +562,8 @@ const GlobalAudioPlayer = () => {
           )}
 
           <div className="bg-white shadow-2xl border border-gray-200/80">
-            <div className="max-w-full mx-auto px-2 md:px-6 lg:px-60 py-1 md:py-2 flex flex-col md:flex-row items-center gap-2 md:gap-4">
-              <div className="flex items-center gap-3 w-full md:w-auto md:flex-shrink-0">
+            <div className="max-w-full mx-auto px-2 md:px-6 lg:px-60 py-1 md:py-2 flex flex-col md:grid md:grid-cols-[minmax(0,18rem)_minmax(16rem,1fr)_minmax(0,18rem)] items-center gap-2 md:gap-4">
+              <div className="flex items-center gap-3 w-full min-w-0">
                 <button onClick={togglePlay} className="md:hidden w-8 h-8 rounded-full ring-1 ring-gray-300 hover:ring-gray-900 text-gray-800 flex items-center justify-center text-xl transition-all flex-shrink-0">
                   {isPlaying ? (
                     <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path></svg>
@@ -574,7 +574,7 @@ const GlobalAudioPlayer = () => {
                 <div className="w-10 h-10 md:w-14 md:h-14 bg-gray-200 rounded-md relative overflow-hidden shadow-sm flex-shrink-0">
                   <img src={playerConfig.coverImage || "/8eh.png"} alt="cover" className="object-cover w-full h-full absolute inset-0" />
                 </div>
-                <div className="text-sm min-w-0 flex-1 md:w-60 flex-shrink-0">
+                <div className="text-sm min-w-0 flex-1">
                   <RunningTitle text={playerConfig.title || "8EH Radio ITB"} />
                   <p className="text-gray-500 flex items-center gap-2 font-plus-jakarta-sans text-xs md:text-sm">
                     <span className="relative flex h-1.5 w-1.5 md:h-2 md:w-2">
@@ -597,7 +597,7 @@ const GlobalAudioPlayer = () => {
                 )}
               </div>
 
-              <div className="hidden md:flex flex-1 flex-col items-center justify-center mx-2 min-w-0">
+              <div className="hidden md:flex flex-col items-center justify-center min-w-0">
                 <div className="flex items-center justify-center w-full gap-6">
                   <button className="text-gray-500 hover:text-black disabled:opacity-40 text-xl" disabled>
                     <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"></path></svg>
@@ -620,7 +620,7 @@ const GlobalAudioPlayer = () => {
                 </div>
               </div>
 
-              <div className="hidden md:flex items-center gap-3 flex-shrink-0 w-auto justify-end">
+              <div className="hidden md:flex items-center gap-3 min-w-0 justify-end">
                 <button type="button" onClick={handleMuteToggle} className="text-gray-600 focus:outline-none cursor-pointer">
                   {isMuted || volume === 0 ? (
                     <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
