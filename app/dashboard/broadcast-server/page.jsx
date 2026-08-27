@@ -169,7 +169,7 @@ function getAutoEndStatus(state, config, minutesUntilAutoEnd) {
   if (state.status === "failed" && state.autoEndStartedAt) {
     return "Auto End butuh perhatian";
   }
-  if (state.status !== "running") return "Auto End standby";
+  if (state.status !== "running") return "";
   if (minutesUntilAutoEnd === null) return "Auto End aktif";
   if (minutesUntilAutoEnd <= 0) return "Auto End menunggu monitor";
   return `Auto End aktif, ${minutesUntilAutoEnd} menit lagi`;
@@ -442,27 +442,29 @@ export default function BroadcastServerPage() {
         <InfoCard label="Active IP" value={state.activeServerIp} highlight />
       </div>
 
-      <section
-        className={`rounded-lg border p-4 font-body text-sm shadow-sm ${
-          config.watchdogConfigured
-            ? "border-green-100 bg-green-50 text-green-800"
-            : "border-yellow-200 bg-yellow-50 text-yellow-800"
-        }`}
-      >
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="font-bold">{autoEndStatus}</p>
-            <p className="mt-1">
-              {config.watchdogConfigured
-                ? "Server tetap bisa auto-end walaupun dashboard ditutup."
-                : "Pasang monitor eksternal agar server bisa auto-end saat dashboard ditutup."}
+      {autoEndStatus && (
+        <section
+          className={`rounded-lg border p-4 font-body text-sm shadow-sm ${
+            config.watchdogConfigured
+              ? "border-green-100 bg-green-50 text-green-800"
+              : "border-yellow-200 bg-yellow-50 text-yellow-800"
+          }`}
+        >
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-bold">{autoEndStatus}</p>
+              <p className="mt-1">
+                {config.watchdogConfigured
+                  ? "Server tetap bisa auto-end walaupun dashboard ditutup."
+                  : "Pasang monitor eksternal agar server bisa auto-end saat dashboard ditutup."}
+              </p>
+            </div>
+            <p className="text-xs opacity-80">
+              Last monitor check: {formatDate(state.lastWatchdogAt)}
             </p>
           </div>
-          <p className="text-xs opacity-80">
-            Last monitor check: {formatDate(state.lastWatchdogAt)}
-          </p>
-        </div>
-      </section>
+        </section>
+      )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
         <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
