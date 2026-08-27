@@ -178,8 +178,9 @@ export function useLiveChat(roomId: string | null, enabled = true) {
     };
   }, [roomId, enabled, reconnectTrigger]);
 
-  const sendMessage = useCallback(async (text: string, senderName: string) => {
-    if (!roomId) return;
+  const sendMessage = useCallback(async (text: string, senderName?: string) => {
+    if (!roomId) return { ok: false, error: 'Room chat belum aktif' };
+    if (!text.trim()) return { ok: false, error: 'Pesan tidak boleh kosong' };
     try {
       const response = await fetch(`/api/live-chat/${roomId}/messages`, {
         method: 'POST',
@@ -191,10 +192,12 @@ export function useLiveChat(roomId: string | null, enabled = true) {
 
       if (!response.ok) {
         const errorData = await response.json();
-        alert(errorData.error || 'Gagal mengirim pesan');
+        return { ok: false, error: errorData.error || 'Gagal mengirim pesan' };
       }
+      return { ok: true };
     } catch (error) {
       console.error('Error saat mengirim pesan:', error);
+      return { ok: false, error: 'Gagal terhubung ke server' };
     }
   }, [roomId]);
 

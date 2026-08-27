@@ -1,5 +1,5 @@
 import Pusher from "pusher";
-import {
+import type {
   NewMessageEvent,
   MessageDeletedEvent,
   GuestMutedEvent,
@@ -19,32 +19,55 @@ import {
  *   const channel = pusher.subscribe(`chat-room-${roomId}`);
  *   channel.bind("new-message", (data) => { ... });
  */
-export const pusherServer = new Pusher({
-  appId: process.env.PUSHER_APP_ID!,
-  key: process.env.PUSHER_KEY!,
-  secret: process.env.PUSHER_SECRET!,
-  cluster: process.env.PUSHER_CLUSTER!,
-  useTLS: true,
-});
+function getPusherConfig() {
+  const appId = process.env.PUSHER_APP_ID?.trim();
+  const key = process.env.PUSHER_KEY?.trim();
+  const secret = process.env.PUSHER_SECRET?.trim();
+  const cluster = process.env.PUSHER_CLUSTER?.trim();
+
+  if (!appId || !key || !secret || !cluster) return null;
+
+  return { appId, key, secret, cluster };
+}
+
+export const pusherServer = (() => {
+  const config = getPusherConfig();
+  if (!config) return null;
+
+  return new Pusher({
+    ...config,
+    useTLS: true,
+  });
+})();
 
 export function chatRoomChannel(roomId: string): string {
   return `chat-room-${roomId}`;
 }
 
+async function trigger(channel: string, event: string, payload: unknown) {
+  if (!pusherServer) return;
+
+  try {
+    await pusherServer.trigger(channel, event, payload);
+  } catch (err) {
+    console.error(`[live-chat pusher] ${event} failed:`, err);
+  }
+}
+
 export async function broadcastNewMessage(roomId: string, payload: NewMessageEvent) {
-  await pusherServer.trigger(chatRoomChannel(roomId), "new-message", payload);
+  await trigger(chatRoomChannel(roomId), "new-message", payload);
 }
 
 export async function broadcastMessageDeleted(roomId: string, payload: MessageDeletedEvent) {
-  await pusherServer.trigger(chatRoomChannel(roomId), "message-deleted", payload);
+  await trigger(chatRoomChannel(roomId), "message-deleted", payload);
 }
 
 export async function broadcastGuestMuted(roomId: string, payload: GuestMutedEvent) {
-  await pusherServer.trigger(chatRoomChannel(roomId), "guest-muted", payload);
+  await trigger(chatRoomChannel(roomId), "guest-muted", payload);
 }
 
 export async function broadcastRoomStatus(roomId: string, payload: RoomStatusEvent) {
-  await pusherServer.trigger(chatRoomChannel(roomId), "room-status", payload);
+  await trigger(chatRoomChannel(roomId), "room-status", payload);
 }
 
 /**
@@ -61,5 +84,5 @@ export async function broadcastRoomStatus(roomId: string, payload: RoomStatusEve
 export const LIVE_STATUS_CHANNEL = "live-status";
 
 export async function broadcastLiveStatus(payload: LiveStatusEvent) {
-  await pusherServer.trigger(LIVE_STATUS_CHANNEL, payload.isLive ? "live-started" : "live-ended", payload);
+  await trigger(LIVE_STATUS_CHANNEL, payload.isLive ? "live-started" : "live-ended", payload);
 }

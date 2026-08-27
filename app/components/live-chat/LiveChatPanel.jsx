@@ -15,8 +15,13 @@ const MAX_MESSAGE_LENGTH = 300;
  * }}
  */
 export default function LiveChatPanel({ session, onClose }) {
-  const { messages, activeListeners, connected, error, sendMessage } =
-    useLiveChat(session);
+  const {
+    messages,
+    activeListeners,
+    isConnected,
+    connectionError,
+    sendMessage,
+  } = useLiveChat(session?.roomId ?? null, Boolean(session?.guestName));
   const [input, setInput] = useState("");
   const [formError, setFormError] = useState("");
   const [sending, setSending] = useState(false);
@@ -44,7 +49,7 @@ export default function LiveChatPanel({ session, onClose }) {
     if (sending) return;
     setFormError("");
     setSending(true);
-    const result = await sendMessage(input);
+    const result = await sendMessage(input, session?.guestName);
     setSending(false);
     if (result.ok) {
       setInput("");
@@ -83,7 +88,7 @@ export default function LiveChatPanel({ session, onClose }) {
 
       {/* Connection status */}
       <div className="px-4 py-1 text-[10px] text-gray-400 bg-gray-50 border-b border-gray-100 font-body">
-        {connected
+        {isConnected
           ? "Terhubung · realtime"
           : "Menghubungkan ke realtime..."}
       </div>
@@ -111,9 +116,9 @@ export default function LiveChatPanel({ session, onClose }) {
       </div>
 
       {/* Error banner (mute / rate limit / koneksi) */}
-      {(error || formError) && (
+      {(connectionError || formError) && (
         <div className="mx-3 mb-2 p-2 bg-red-50 border border-red-200 rounded-lg text-red-700 text-xs font-body">
-          {error || formError}
+          {formError || "Koneksi realtime bermasalah. Pesan tetap akan dicoba dimuat ulang."}
         </div>
       )}
 
