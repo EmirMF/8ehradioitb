@@ -11,20 +11,12 @@ export default function ChatInputBox({ onSendMessage, disabled = false }: ChatIn
   const [text, setText] = useState('');
 
   const handleSend = () => {
-  const trimmedText = text.trim();
-  if (!trimmedText) return;
+    const trimmedText = text.trim();
+    if (!trimmedText) return;
 
-  console.log('onSendMessage type:', typeof onSendMessage);
-  console.log('onSendMessage value:', onSendMessage);
-
-  if (typeof onSendMessage !== 'function') {
-    console.error('onSendMessage bukan fungsi!', onSendMessage);
-    return;
-  }
-
-  onSendMessage(trimmedText);
-  setText('');
-};
+    onSendMessage(trimmedText);
+    setText('');
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -34,22 +26,23 @@ export default function ChatInputBox({ onSendMessage, disabled = false }: ChatIn
   };
 
   return (
-    <div className="border-t border-slate-700/50 bg-slate-800/50 backdrop-blur-md p-4">
-      <div className="flex items-center gap-3">
+    <div className="font-plus-jakarta-sans border-t border-gray-100 bg-white px-4 py-3">
+      <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 p-1.5 pl-4 shadow-sm focus-within:border-[#D83232]/40 focus-within:ring-2 focus-within:ring-[#D83232]/10">
         <input
           type="text"
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={disabled ? 'Masukkan nama dulu...' : 'Ketik pesan...'}
+          placeholder={disabled ? 'Masukkan nama dulu...' : 'Tulis pesan...'}
           disabled={disabled}
-          className="flex-1 rounded-full border border-white/10 bg-slate-700/50 px-5 py-3 text-sm text-white placeholder-slate-500 outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="min-w-0 flex-1 bg-transparent py-2 text-sm text-gray-900 placeholder-gray-400 outline-none disabled:opacity-50 disabled:cursor-not-allowed"
         />
 
         <button
           onClick={handleSend}
           disabled={disabled || !text.trim()}
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-red-600 text-white transition-all hover:bg-red-500 hover:shadow-lg hover:shadow-red-500/30 active:scale-90 disabled:opacity-40 disabled:hover:bg-red-600 disabled:hover:shadow-none"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#D83232] text-white transition-all hover:bg-[#B72929] hover:shadow-lg hover:shadow-[#D83232]/20 active:scale-90 disabled:opacity-40 disabled:hover:bg-[#D83232] disabled:hover:shadow-none"
+          aria-label="Kirim pesan"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"

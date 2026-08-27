@@ -1,10 +1,12 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
+import Pusher from "pusher-js";
+import { FiMessageCircle } from "react-icons/fi";
+import ButtonPrimary from "@/app/components/ButtonPrimary";
 
 import LiveChatWindow from "@/app/components/chat/LiveChatWindow";
 import ChatInputBox from "@/app/components/chat/ChatInputBox";
-import ModerationPanel from "@/app/components/chat/ModerationPanel";
 import { useLiveChat } from "@/app/hooks/useLiveChat";
 
 
@@ -28,29 +30,36 @@ function InlineNameForm({ onSubmit }) {
   };
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center px-6 gap-4">
-      <p className="font-bold text-gray-800 text-sm text-center">Masukkan nama panggilan kamu</p>
-      <form className="w-full flex flex-col gap-2" onSubmit={handleSubmit}>
+    <div className="font-plus-jakarta-sans flex-1 flex flex-col items-center justify-center bg-gray-50 px-6 py-8">
+      <p className="mb-1 font-bold text-gray-900 text-base text-center">Live Chat</p>
+      <p className="mb-5 max-w-[250px] text-center text-xs leading-relaxed text-gray-500">Gunakan nama panggilan agar penyiar dan pendengar lain bisa mengenalmu.</p>
+      <form className="w-full max-w-[280px] flex flex-col gap-2" onSubmit={handleSubmit}>
         <input
           name="nickname"
           type="text"
           maxLength={30}
           placeholder="Contoh: Andi"
-          className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100 transition-all"
+          className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 placeholder-gray-400 shadow-sm outline-none focus:border-[#D83232] focus:ring-4 focus:ring-[#D83232]/10 transition-all"
           autoFocus
           disabled={submitting}
         />
-        {formErr && <p className="text-xs text-red-500">{formErr}</p>}
-        <button
+        {formErr && <p className="rounded-lg bg-[#D83232]/10 px-3 py-2 text-xs text-[#D83232]">{formErr}</p>}
+        <ButtonPrimary
           type="submit"
           disabled={submitting}
-          className="w-full rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-700 transition-all active:scale-95 disabled:opacity-50"
+          className="!w-full !rounded-lg !px-4 !py-3 !font-plus-jakarta-sans text-sm disabled:opacity-50"
         >
           {submitting ? 'Menghubungkan...' : 'Masuk ke Chat'}
-        </button>
+        </ButtonPrimary>
       </form>
     </div>
   );
+}
+
+function clearStoredChatSession() {
+  localStorage.removeItem('guest_name');
+  localStorage.removeItem('chat_session_id');
+  sessionStorage.removeItem('guest_name');
 }
 
 const GlobalAudioPlayer = () => {
@@ -65,26 +74,42 @@ const GlobalAudioPlayer = () => {
   const [chatRoomId, setChatRoomId] = useState(null); // untuk useLiveChat (diset setelah sesi valid)
   const [isLiveActive, setIsLiveActive] = useState(null); // null=loading, true/false
   
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isModerationPanelOpen, setIsModerationPanelOpen] = useState(false);
-
-  // Ambil nama tersimpan saat refresh + cek admin
   useEffect(() => {
-    const savedName = localStorage.getItem('guest_name');
-    if (savedName) setGuestName(savedName);
+    const pusherKey = process.env.NEXT_PUBLIC_PUSHER_KEY || '';
+    const pusherCluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'ap1';
+    if (!pusherKey) return;
 
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('admin') === 'true') {
-      setIsAdmin(true);
-    }
-  }, []);
+    const pusher = new Pusher(pusherKey, { cluster: pusherCluster, forceTLS: true });
+    const channel = pusher.subscribe('live-status');
+
+    channel.bind('live-started', (data) => {
+      if (!data.roomId) return;
+      setRoomId(data.roomId);
+      if (showLiveChat) setIsLiveActive(true);
+    });
+
+    channel.bind('live-ended', () => {
+      clearStoredChatSession();
+      setGuestName(null);
+      setRoomId(null);
+      setChatRoomId(null);
+      setIsLiveActive(false);
+    });
+
+    return () => {
+      channel.unbind_all();
+      pusher.unsubscribe('live-status');
+      pusher.disconnect();
+    };
+  }, [showLiveChat]);
 
  useEffect(() => {
   if (isPlaying) {
     const wasOffAir = sessionStorage.getItem('was_off_air');
     if (wasOffAir === 'true') {
-      localStorage.removeItem('guest_name');
+      clearStoredChatSession();
       setGuestName(null);
+      setChatRoomId(null);
       setShowLiveChat(false);
       sessionStorage.removeItem('was_off_air');
     }
@@ -97,7 +122,14 @@ const GlobalAudioPlayer = () => {
 }, [isPlaying]);
 
   // chatRoomId hanya di-pass ke useLiveChat setelah sesi guest valid
-  const { messages, sendMessage, activeListeners, activeGuests, deleteMessage, muteGuest } = useLiveChat(chatRoomId);
+  const {
+    messages,
+    sendMessage,
+    activeListeners,
+    connectionError,
+    reconnect,
+    roomInactive,
+  } = useLiveChat(chatRoomId, Boolean(guestName));
 
   const [playerConfig, setPlayerConfig] = useState({
     title: "",
@@ -200,7 +232,8 @@ const GlobalAudioPlayer = () => {
   };
 
   const toggleLiveChat = async () => {
-    if (!showLiveChat && roomId === null) {
+    if (!showLiveChat) {
+      setIsLiveActive(null);
       // Pertama kali dibuka — fetch active room
       try {
         const res = await fetch('/api/live-chat/active-room');
@@ -210,14 +243,39 @@ const GlobalAudioPlayer = () => {
           if (data.live && data.roomId) {
             setRoomId(data.roomId);
             setIsLiveActive(true);
+
+            const sessionRes = await fetch('/api/live-chat/guest-session');
+            const sessionCt = sessionRes.headers.get('content-type') || '';
+            const sessionData = sessionCt.includes('application/json') ? await sessionRes.json() : {};
+
+            if (sessionData.active && sessionData.guestName && sessionData.roomId) {
+              localStorage.setItem('guest_name', sessionData.guestName);
+              if (sessionData.sessionId) localStorage.setItem('chat_session_id', sessionData.sessionId);
+              setGuestName(sessionData.guestName);
+              setRoomId(sessionData.roomId);
+              setChatRoomId(sessionData.roomId);
+            } else {
+              clearStoredChatSession();
+              setGuestName(null);
+              setChatRoomId(null);
+            }
           } else {
+            clearStoredChatSession();
+            setGuestName(null);
+            setRoomId(null);
+            setChatRoomId(null);
             setIsLiveActive(false);
           }
         } else {
+          clearStoredChatSession();
+          setGuestName(null);
+          setRoomId(null);
+          setChatRoomId(null);
           setIsLiveActive(false);
         }
       } catch (err) {
         console.warn('[GlobalAudioPlayer] Gagal cek active room:', err);
+        setChatRoomId(null);
         setIsLiveActive(false);
       }
     }
@@ -240,8 +298,9 @@ const GlobalAudioPlayer = () => {
       localStorage.setItem('guest_name', name);
       if (data.sessionId) localStorage.setItem('chat_session_id', data.sessionId);
       setGuestName(name);
+      if (data.roomId) setRoomId(data.roomId);
       // Baru sekarang aktifkan koneksi Pusher + fetch riwayat pesan
-      setChatRoomId(roomId);
+      setChatRoomId(data.roomId ?? roomId);
       return { error: null };
     } catch {
       return { error: 'Terjadi kesalahan koneksi' };
@@ -259,31 +318,27 @@ const GlobalAudioPlayer = () => {
       {isVisible && (
         <div className="fixed bottom-0 left-0 right-0 z-50">
           {showLiveChat && (
-            <div className="absolute bottom-full right-2 left-2 md:left-auto md:right-60 mb-2 md:w-[380px] h-[65vh] md:h-[440px] max-h-[500px] bg-white border border-gray-200 rounded-lg shadow-2xl flex flex-col overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 flex-shrink-0">
+            <div className="font-plus-jakarta-sans absolute bottom-full right-2 left-2 md:left-auto md:right-60 mb-3 md:w-[340px] h-[min(68vh,540px)] md:h-[480px] max-h-[560px] bg-white border border-gray-200 rounded-2xl shadow-2xl shadow-gray-900/20 flex flex-col overflow-hidden">
+              <div className="relative flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-white flex-shrink-0">
+                
                 <div className="flex items-center gap-2">
-                  <p className="font-heading font-bold text-gray-800 text-sm">
-                    Live Chat
-                  </p>
-                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full flex items-center gap-1">
-                    <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+                  <div>
+                    <p className="font-bold text-gray-900 text-sm leading-tight">Live Chat</p>
+                  </div>
+                  <span
+                    className="ml-1 text-[10px] font-semibold text-gray-600 bg-gray-100 px-2 py-1 rounded-xl flex items-center gap-1"
+                    title={`${activeListeners} peserta chat`}
+                    aria-label={`${activeListeners} peserta chat`}
+                  >
+                    <FiMessageCircle className="text-green-500" size={12} aria-hidden="true" />
                     {activeListeners}
                   </span>
-                  {isAdmin && <span className="text-[10px] bg-red-500/10 text-red-600 px-2 py-0.5 rounded-md font-bold">ADMIN</span>}
                 </div>
                 
                 <div className="flex items-center gap-2">
-                  {isAdmin && (
-                    <button
-                      onClick={() => setIsModerationPanelOpen(true)}
-                      className="text-[10px] bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded-md transition-colors"
-                    >
-                      Moderasi
-                    </button>
-                  )}
                   <button
                     onClick={toggleLiveChat}
-                    className="text-gray-400 hover:text-gray-700 transition-colors"
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors"
                     aria-label="Tutup live chat"
                   >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
@@ -294,32 +349,24 @@ const GlobalAudioPlayer = () => {
               </div>
 
               <div className="flex-1 flex flex-col overflow-hidden relative">
-                {isAdmin && isModerationPanelOpen && (
-                  <ModerationPanel 
-                    activeGuests={activeGuests} 
-                    onMuteGuest={muteGuest} 
-                    onClose={() => setIsModerationPanelOpen(false)} 
-                  />
-                )}
-
                 {/* Saat room belum diketahui (loading) */}
                 {isLiveActive === null && (
-                  <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
-                    <span>Memeriksa status siaran...</span>
+                  <div className="flex-1 flex flex-col items-center justify-center gap-3 text-gray-400 text-sm">
+                    <span className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-[#D83232]" />
+                    <span className="text-xs">Memeriksa status siaran...</span>
                   </div>
                 )}
 
                 {/* Tidak ada siaran aktif */}
                 {isLiveActive === false && (
-                  <div className="flex-1 flex flex-col items-center justify-center gap-2 px-4 text-center">
-                    <span className="text-2xl">📻</span>
-                    <p className="font-semibold text-gray-700 text-sm">Siaran Belum Dimulai</p>
-                    <p className="text-gray-400 text-xs">Live chat akan tersedia saat kami sedang on air.</p>
+                  <div className="flex-1 flex flex-col items-center justify-center gap-2 px-4 text-center bg-gray-50">
+                    <p className="font-bold text-gray-700 text-sm">Siaran belum dimulai</p>
+                    <p className="max-w-[220px] text-xs leading-relaxed text-gray-400">Live chat akan tersedia saat 8EH Radio sedang on air.</p>
                   </div>
                 )}
 
                 {/* Ada siaran aktif */}
-                {isLiveActive === true && (
+                {isLiveActive === true && !roomInactive && (
                   !guestName ? (
                     <InlineNameForm onSubmit={handleNameSubmit} />
                   ) : (
@@ -327,12 +374,18 @@ const GlobalAudioPlayer = () => {
                       <LiveChatWindow 
                         messages={messages} 
                         currentUserName={guestName} 
-                        isAdmin={isAdmin}
-                        onDeleteMessage={deleteMessage}
+                        connectionError={connectionError}
+                        onReconnect={reconnect}
                       />
                       <ChatInputBox onSendMessage={handleSendMessage} />
                     </>
                   )
+                )}
+                {isLiveActive === true && roomInactive && (
+                  <div className="flex-1 flex flex-col items-center justify-center gap-2 px-4 text-center bg-gray-50">
+                    <p className="font-bold text-gray-700 text-sm">Siaran telah selesai</p>
+                    <p className="max-w-[220px] text-xs leading-relaxed text-gray-400">Live chat akan tersedia kembali pada siaran berikutnya.</p>
+                  </div>
                 )}
               </div>
             </div>
@@ -352,11 +405,11 @@ const GlobalAudioPlayer = () => {
                   <img src={playerConfig.coverImage || "/8eh.png"} alt="cover" className="object-cover w-full h-full absolute inset-0" />
                 </div>
                 <div className="text-sm min-w-0 flex-1 md:w-60 flex-shrink-0">
-                  <p className="font-heading font-bold text-gray-800 truncate text-xs md:text-sm">{playerConfig.title || "8EH Radio ITB"}</p>
-                  <p className="text-gray-500 flex items-center gap-2 font-body text-xs md:text-sm">
+                  <p className="font-plus-jakarta-sans font-bold text-gray-800 truncate text-xs md:text-sm">{playerConfig.title || "8EH Radio ITB"}</p>
+                  <p className="text-gray-500 flex items-center gap-2 font-plus-jakarta-sans text-xs md:text-sm">
                     <span className="relative flex h-1.5 w-1.5 md:h-2 md:w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 md:h-2 md:w-2 bg-red-500"></span>
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#D83232] opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 md:h-2 md:w-2 bg-[#D83232]"></span>
                     </span>
                     Live Now
                   </p>

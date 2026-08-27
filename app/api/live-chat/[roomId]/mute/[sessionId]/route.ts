@@ -45,9 +45,18 @@ export async function POST(_req: Request, { params }: RouteParams) {
 
   const { roomId, sessionId } = await params;
 
+  const room = await prisma.chatRoom.findUnique({ where: { id: roomId } });
+  if (!room) {
+    return NextResponse.json({ error: "Room tidak ditemukan" }, { status: 404 });
+  }
+
   const guestSession = await prisma.guestSession.findUnique({ where: { sessionId } });
   if (!guestSession) {
     return NextResponse.json({ error: "Guest session tidak ditemukan" }, { status: 404 });
+  }
+
+  if (guestSession.broadcastId !== room.broadcastId) {
+    return NextResponse.json({ error: "Guest session bukan milik room ini" }, { status: 409 });
   }
 
   if (guestSession.isMuted) {
@@ -86,9 +95,18 @@ export async function DELETE(_req: Request, { params }: RouteParams) {
 
   const { roomId, sessionId } = await params;
 
+  const room = await prisma.chatRoom.findUnique({ where: { id: roomId } });
+  if (!room) {
+    return NextResponse.json({ error: "Room tidak ditemukan" }, { status: 404 });
+  }
+
   const guestSession = await prisma.guestSession.findUnique({ where: { sessionId } });
   if (!guestSession) {
     return NextResponse.json({ error: "Guest session tidak ditemukan" }, { status: 404 });
+  }
+
+  if (guestSession.broadcastId !== room.broadcastId) {
+    return NextResponse.json({ error: "Guest session bukan milik room ini" }, { status: 409 });
   }
 
   await prisma.guestSession.update({

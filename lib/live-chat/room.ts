@@ -24,10 +24,23 @@ export async function getOrSyncActiveRoom(): Promise<ChatRoom | null> {
   const config = await prisma.streamConfig.findFirst();
   const onAir = config?.onAir ?? false;
 
-  const activeRoom = await prisma.chatRoom.findFirst({
+  const activeRooms = await prisma.chatRoom.findMany({
     where: { isActive: true },
     orderBy: { createdAt: "desc" },
   });
+  const [activeRoom, ...staleRooms] = activeRooms;
+
+  if (staleRooms.length > 0) {
+    await prisma.chatRoom.updateMany({
+      where: { id: { in: staleRooms.map((room) => room.id) } },
+      data: { isActive: false, closedAt: new Date() },
+    });
+    await Promise.all(
+      staleRooms.map((room) =>
+        broadcastRoomStatus(room.id, { roomId: room.id, isActive: false })
+      )
+    );
+  }
 
   if (onAir) {
     if (activeRoom) return activeRoom;
@@ -48,13 +61,17 @@ export async function getOrSyncActiveRoom(): Promise<ChatRoom | null> {
   }
 
   // onAir false: kalau masih ada room aktif tertinggal, close + archive sekarang.
-  if (activeRoom) {
-    await prisma.chatRoom.update({
-      where: { id: activeRoom.id },
+  if (activeRooms.length > 0) {
+    await prisma.chatRoom.updateMany({
+      where: { id: { in: activeRooms.map((room) => room.id) } },
       data: { isActive: false, closedAt: new Date() },
     });
 
-    await broadcastRoomStatus(activeRoom.id, { roomId: activeRoom.id, isActive: false });
+    await Promise.all(
+      activeRooms.map((room) =>
+        broadcastRoomStatus(room.id, { roomId: room.id, isActive: false })
+      )
+    );
 
     return null;
   }

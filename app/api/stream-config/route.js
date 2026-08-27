@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 import { hasAnyRole } from "@/lib/roleUtils";
+import { getOrSyncActiveRoom } from "@/lib/live-chat/room";
+import { broadcastLiveStatus } from "@/lib/live-chat/pusher";
 
 function isAdmin(roleString) {
   return hasAnyRole(roleString, ["DEVELOPER", "TECHNIC"]);
@@ -20,6 +22,7 @@ export async function POST(req) {
   }
   const { baseUrls, defaultUrl, fallbackUrl, onAir } = await req.json();
   let config = await prisma.streamConfig.findFirst();
+  const previousOnAir = config?.onAir ?? false;
   if (config) {
     config = await prisma.streamConfig.update({
       where: { id: config.id },
@@ -28,6 +31,13 @@ export async function POST(req) {
   } else {
     config = await prisma.streamConfig.create({
       data: { baseUrls, defaultUrl, fallbackUrl, onAir },
+    });
+  }
+  if (previousOnAir !== config.onAir) {
+    const room = await getOrSyncActiveRoom();
+    await broadcastLiveStatus({
+      isLive: config.onAir,
+      roomId: room?.id ?? null,
     });
   }
   return NextResponse.json(config);

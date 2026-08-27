@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import ButtonPrimary from '../ButtonPrimary';
 
 interface GuestNameModalProps {
   onSaveName: (name: string) => void;
@@ -60,42 +61,45 @@ export default function GuestNameModal(props: GuestNameModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="w-full max-w-sm mx-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-xl">
-        <h2 className="text-xl font-bold text-gray-900 text-center mb-2">
-          Selamat Datang di Live Chat
-        </h2>
-        <p className="text-sm text-gray-400 text-center mb-6">
-          Masukkan nama panggilan kamu untuk mulai ngobrol
-        </p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/30 px-4 backdrop-blur-sm">
+      <div className="font-plus-jakarta-sans w-full max-w-sm overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl shadow-gray-900/15">
+        <div className="h-1.5 w-full bg-[#D83232]" />
+        <div className="p-7">
+          <h2 className="text-xl font-bold text-gray-900 text-center mb-2">
+            Selamat Datang di Live Chat
+          </h2>
+          <p className="text-sm text-gray-500 text-center mb-6">
+            Masukkan nama panggilan kamu untuk mulai ngobrol
+          </p>
 
-        <form onSubmit={handleSubmit}>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => {
-              setName(e.target.value);
-              setError('');
-            }}
-            placeholder="Contoh: Andi"
-            className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-gray-900 placeholder-gray-400 outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-200 transition-all"
-            autoFocus
-            maxLength={30}
-            disabled={loading}
-          />
+          <form onSubmit={handleSubmit}>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                setError('');
+              }}
+              placeholder="Contoh: Andi"
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-gray-900 placeholder-gray-400 outline-none focus:border-[#D83232] focus:ring-4 focus:ring-[#D83232]/10 transition-all"
+              autoFocus
+              maxLength={30}
+              disabled={loading}
+            />
 
-          {error && (
-            <p className="mt-2 text-sm text-red-400">{error}</p>
-          )}
+            {error && (
+              <p className="mt-2 text-sm text-[#D83232]">{error}</p>
+            )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="mt-4 w-full rounded-lg bg-gray-900 px-4 py-3 font-semibold text-white transition-all hover:bg-gray-700 active:scale-95 disabled:opacity-50"
-          >
-            {loading ? 'Menghubungkan...' : 'Masuk ke Chat'}
-          </button>
-        </form>
+            <ButtonPrimary
+              type="submit"
+              disabled={loading}
+              className="!mt-4 !w-full !rounded-lg !px-4 !py-3 !font-plus-jakarta-sans disabled:opacity-50"
+            >
+              {loading ? 'Menghubungkan...' : 'Masuk ke Chat'}
+            </ButtonPrimary>
+          </form>
+        </div>
       </div>
     </div>
   );

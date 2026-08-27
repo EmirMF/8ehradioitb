@@ -97,9 +97,17 @@ export async function GET() {
     return NextResponse.json({ active: false });
   }
 
+  const room = await getOrSyncActiveRoom();
+  if (!room || session.broadcastId !== room.broadcastId) {
+    return NextResponse.json({ active: false });
+  }
+
   return NextResponse.json({
     active: true,
+    sessionId: session.sessionId,
     guestName: session.guestName,
     isMuted: session.isMuted,
+    roomId: room.id,
+    live: true,
   });
 }

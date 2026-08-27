@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireGuestSession } from "@/lib/live-chat/auth";
+import { requireAdmin, requireGuestSession } from "@/lib/live-chat/auth";
 import { sanitizeMessageText } from "@/lib/live-chat/validate";
 import { checkRateLimit } from "@/lib/live-chat/rate-limit";
 import { broadcastNewMessage } from "@/lib/live-chat/pusher";
@@ -24,13 +24,11 @@ interface RouteParams {
 export async function GET(req: NextRequest, { params }: RouteParams) {
   const { roomId } = await params;
 
-  const sessionCheck = await requireGuestSession();
-  if (!sessionCheck.ok) {
-    const reason = (sessionCheck as { ok: false; reason: string }).reason;
-    return NextResponse.json(
-      { error: "Sesi guest tidak valid", reason },
-      { status: reason === "muted" ? 403 : 401 }
-    );
+  const guestCheck = await requireGuestSession();
+  const adminCheck = guestCheck.ok ? null : await requireAdmin();
+  if (!guestCheck.ok && !adminCheck?.ok) {
+    const reason = (guestCheck as { ok: false; reason: string }).reason;
+    return NextResponse.json({ error: "Sesi tidak valid", reason }, { status: reason === "muted" ? 403 : 401 });
   }
 
   const { searchParams } = new URL(req.url);
@@ -118,6 +116,10 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   const activeRoom = await getActiveRoomOrNull();
   if (!activeRoom || activeRoom.id !== roomId) {
     return NextResponse.json({ error: "Room tidak aktif / siaran sudah selesai" }, { status: 409 });
+  }
+
+  if (session.broadcastId !== activeRoom.broadcastId) {
+    return NextResponse.json({ error: "Sesi chat sudah berakhir, silakan masuk lagi" }, { status: 409 });
   }
 
   const rl = await checkRateLimit(session.sessionId);

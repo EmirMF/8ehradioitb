@@ -18,6 +18,14 @@
   --font-accent: var(--font-instrument-serif);
 }
 
+.font-plus-jakarta-sans {
+  font-family: var(--font-plus-jakarta-sans), system-ui, sans-serif;
+}
+
+.\!font-plus-jakarta-sans {
+  font-family: var(--font-plus-jakarta-sans), system-ui, sans-serif !important;
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #ffffff;

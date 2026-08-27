@@ -17,11 +17,12 @@ export interface ActiveGuest {
   isMuted: boolean; 
 }
 
-export function useLiveChat(roomId: string | null) {
+export function useLiveChat(roomId: string | null, enabled = true) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [connectionError, setConnectionError] = useState(false);
   const [reconnectTrigger, setReconnectTrigger] = useState(0);
+  const [roomInactive, setRoomInactive] = useState(false);
   
   // States untuk Admin / Moderasi
   const [activeListeners, setActiveListeners] = useState<number>(0);
@@ -33,10 +34,17 @@ export function useLiveChat(roomId: string | null) {
   }, []);
 
   useEffect(() => {
-    if (!roomId) {
+    if (!roomId || !enabled) {
       setIsConnected(false);
+      setConnectionError(false);
+      setRoomInactive(false);
+      setMessages([]);
       return;
     }
+
+    let disposed = false;
+
+    setRoomInactive(false);
 
     // 1. Ambil riwayat pesan yang sudah ada di server
     fetch(`/api/live-chat/${roomId}/messages`)
@@ -45,6 +53,7 @@ export function useLiveChat(roomId: string | null) {
         return res.json();
       })
       .then(data => {
+        if (disposed) return;
         if (data.messages && data.messages.length > 0) {
           setMessages(data.messages.map((m: any) => ({
             id: m.id,
@@ -56,6 +65,7 @@ export function useLiveChat(roomId: string | null) {
         }
       })
       .catch(err => {
+        if (disposed) return;
         console.error('Gagal memuat riwayat pesan:', err);
         setConnectionError(true);
       });
@@ -68,6 +78,7 @@ export function useLiveChat(roomId: string | null) {
           return res.json();
         })
         .then(data => {
+          if (disposed) return;
           if (data.activeListeners !== undefined) setActiveListeners(data.activeListeners);
           if (data.activeGuests !== undefined) setActiveGuests(data.activeGuests);
         })
@@ -84,7 +95,10 @@ export function useLiveChat(roomId: string | null) {
     if (!pusherKey) {
       console.error('Pusher key tidak ditemukan di environment variables.');
       setConnectionError(true);
-      return;
+      return () => {
+        disposed = true;
+        clearInterval(statsInterval);
+      };
     }
 
     const pusher = new Pusher(pusherKey, {
@@ -150,17 +164,19 @@ export function useLiveChat(roomId: string | null) {
     // Event: Status room berubah (active/inactive)
     channel.bind('room-status', (data: any) => {
       if (!data.isActive) {
-        alert('Room chat telah dinonaktifkan.');
+        setRoomInactive(true);
+        setIsConnected(false);
       }
     });
 
     return () => {
+      disposed = true;
       clearInterval(statsInterval);
       channel.unbind_all();
       pusher.unsubscribe(channelName);
       pusher.disconnect();
     };
-  }, [roomId, reconnectTrigger]);
+  }, [roomId, enabled, reconnectTrigger]);
 
   const sendMessage = useCallback(async (text: string, senderName: string) => {
     if (!roomId) return;
@@ -222,6 +238,7 @@ export function useLiveChat(roomId: string | null) {
     messages,
     isConnected,
     connectionError,
+    roomInactive,
     reconnect,
     sendMessage,
     activeListeners,

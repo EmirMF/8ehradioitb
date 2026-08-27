@@ -155,10 +155,10 @@ export default async function RootLayout({ children }) {
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${plusJakartaSans.variable} ${arimo.variable} ${instrumentSerif.variable} antialiased`}
       >
-        <AuthProvider session={session}>{children}</AuthProvider>
-        <div>
+        <AuthProvider session={session}>
+          {children}
           <GlobalAudioPlayer />
-        </div>
+        </AuthProvider>
         {/* <ChatWidgetWrapper /> */}
       </body>
     </html>
