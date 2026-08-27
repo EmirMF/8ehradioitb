@@ -53,10 +53,13 @@ export default function NewsList({ newsItems = [] }) {
               >
                 <div className="bg-gradient-to-b from-[#FEF9E7] to-[#F5E6A3] rounded-3xl shadow-sm overflow-hidden flex flex-col h-full p-4 transition-all duration-300 ease-in-out group-hover:shadow-xl group-hover:scale-[1.02]">
                   <div className="relative h-48 rounded-xl overflow-hidden">
-                    <img
+                    <Image
                       src={item.mainImage || "/og-image.png"}
                       alt={item.title}
-                      className="object-cover w-full h-full"
+                      fill
+                      sizes="(min-width: 768px) 33vw, (min-width: 640px) 50vw, 100vw"
+                      quality={65}
+                      className="object-cover"
                     />
                   </div>
                   <div className="pt-6 px-2 flex flex-col flex-grow">

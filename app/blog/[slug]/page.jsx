@@ -125,7 +125,13 @@ export default async function BlogPostPage({ params }) {
               <div className="flex items-start space-x-3 min-w-0 flex-1">
                 {mainAuthor?.image && (
                   <div className="w-12 h-12 bg-gray-200 rounded-full relative overflow-hidden flex-shrink-0">
-                    <Image src={mainAuthor.image} alt={mainAuthor.name} fill />
+                    <Image
+                      src={mainAuthor.image}
+                      alt={mainAuthor.name}
+                      fill
+                      sizes="48px"
+                      className="object-cover"
+                    />
                   </div>
                 )}
                 <div className="min-w-0">
@@ -187,8 +193,10 @@ export default async function BlogPostPage({ params }) {
               <Image
                 src={post.mainImage}
                 alt={post.title}
-                layout="fill"
-                objectFit="cover"
+                fill
+                sizes="(min-width: 1024px) 896px, 100vw"
+                quality={75}
+                className="object-cover"
               />
             </div>
           )}
@@ -321,7 +329,8 @@ export default async function BlogPostPage({ params }) {
                         src={mainAuthor.image || "/8eh-real.svg"}
                         alt={mainAuthor.name}
                         fill
-                        objectFit="cover"
+                        sizes="80px"
+                        className="object-cover"
                       />
                     </div>
                     <div>
@@ -347,7 +356,8 @@ export default async function BlogPostPage({ params }) {
                             src={author.image || "/8eh-real.svg"}
                             alt={author.name}
                             fill
-                            objectFit="cover"
+                            sizes="80px"
+                            className="object-cover"
                           />
                         </div>
                         <div>

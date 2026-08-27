@@ -37,7 +37,8 @@ export default function HeroSection() {
         width={2000}
         height={434}
         className="absolute -top-10 left-160 -translate-x-1/2 pointer-events-none select-none opacity-70 z-0"
-        priority
+        sizes="100vw"
+        quality={55}
       />
 
       {/* Content container */}
@@ -87,6 +88,8 @@ export default function HeroSection() {
           width={1200}
           height={700}
           className={`[mask-image:linear-gradient(to_bottom,black_60%,transparent_100%)] ${!isSafari ? "mix-blend-multiply" : ""}`}
+          sizes="(min-width: 1024px) 1200px, 100vw"
+          quality={75}
           priority
         />
       </div>
