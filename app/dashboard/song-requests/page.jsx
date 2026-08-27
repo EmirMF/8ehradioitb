@@ -1,27 +1,8 @@
 "use client";
-import { useSession } from "next-auth/react";
-import { useEffect, useState, useCallback, useRef } from "react";
-import { FiMusic, FiSearch, FiX } from "react-icons/fi";
-import { getPusherClient } from "@/app/hooks/usePusherClient";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { FiMusic, FiSearch, FiClock } from "react-icons/fi";
 
-const STATUS_TABS = [
-  { key: "ALL", label: "Semua" },
-  { key: "PENDING", label: "Pending" },
-  { key: "QUEUED", label: "Antrian" },
-  { key: "NOW_PLAYING", label: "Playing" },
-  { key: "DONE", label: "Selesai" },
-  { key: "REJECTED", label: "Ditolak" },
-];
-
-const STATUS_BADGE = {
-  PENDING: "bg-yellow-100 text-yellow-800",
-  QUEUED: "bg-blue-100 text-blue-800",
-  NOW_PLAYING: "bg-green-100 text-green-800",
-  DONE: "bg-gray-100 text-gray-600",
-  REJECTED: "bg-red-100 text-red-800",
-};
-
-const STATUS_LABEL = {
+const STATUS_LABELS = {
   PENDING: "Pending",
   QUEUED: "Antrian",
   NOW_PLAYING: "Playing",
@@ -29,395 +10,345 @@ const STATUS_LABEL = {
   REJECTED: "Ditolak",
 };
 
-function formatRelativeTime(dateStr) {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "Baru saja";
-  if (mins < 60) return `${mins} menit lalu`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} jam lalu`;
-  return new Date(dateStr).toLocaleDateString("id-ID", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+const STATUS_COLORS = {
+  PENDING: "bg-yellow-100 text-yellow-700",
+  QUEUED: "bg-gray-100 text-gray-600",
+  NOW_PLAYING: "bg-blue-100 text-blue-700",
+  DONE: "bg-green-100 text-green-700",
+  REJECTED: "bg-red-100 text-red-700",
+};
+
+const FILTERS = ["ALL", "PENDING", "QUEUED", "NOW_PLAYING", "DONE", "REJECTED"];
+const FILTER_LABELS = {
+  ALL: "Semua",
+  PENDING: "Pending",
+  QUEUED: "Antrian",
+  NOW_PLAYING: "Playing",
+  DONE: "Selesai",
+  REJECTED: "Ditolak",
+};
+
+function formatTime(dateStr) {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diff = now - date;
+  if (diff < 60000) return "Baru saja";
+  if (diff < 3600000) return `${Math.floor(diff / 60000)} mnt lalu`;
+  const d = date.getDate();
+  const m = date.getMonth() + 1;
+  const h = date.getHours().toString().padStart(2, "0");
+  const min = date.getMinutes().toString().padStart(2, "0");
+  return `${d} ${["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"][date.getMonth()]}, ${h}.${min}`;
 }
 
 export default function SongRequestsPage() {
-  const { data: session } = useSession();
   const [requests, setRequests] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("ALL");
+  const [counts, setCounts] = useState({});
+  const [activeFilter, setActiveFilter] = useState("ALL");
   const [search, setSearch] = useState("");
-  const [broadcastId, setBroadcastId] = useState(null);
-  const [actionLoading, setActionLoading] = useState(null);
-  const [rejectModal, setRejectModal] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadingId, setLoadingId] = useState(null);
+  const debounceRef = useRef(null);
+
+  // Reject modal state
+  const [rejectModal, setRejectModal] = useState({ open: false, id: null });
   const [rejectReason, setRejectReason] = useState("");
-  const channelRef = useRef(null);
+  const [isRejecting, setIsRejecting] = useState(false);
 
-  const pendingCount = requests.filter((r) => r.status === "PENDING").length;
-
-  const fetchRequests = useCallback(async () => {
+  const fetchRequests = useCallback(async (filter, q) => {
+    setIsLoading(true);
     try {
-      const res = await fetch("/api/song-request/admin");
-      if (res.ok) {
-        const data = await res.json();
-        setRequests(data.requests || []);
-        setBroadcastId(data.broadcastId || null);
-      }
-    } catch { /* noop */ }
-    finally {
-      setLoading(false);
+      const params = new URLSearchParams();
+      if (filter !== "ALL") params.set("status", filter);
+      if (q) params.set("search", q);
+      const res = await fetch(`/api/song-request?${params}`);
+      const data = await res.json();
+      setRequests(data.requests || []);
+      setCounts(data.counts || {});
+    } catch {
+      setRequests([]);
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchRequests();
-  }, [fetchRequests]);
+    fetchRequests(activeFilter, search);
+  }, [activeFilter]);
 
-  // Pusher subscription
-  useEffect(() => {
-    if (!broadcastId) return;
-    const pusher = getPusherClient();
-    if (!pusher) {
-      const timer = setInterval(fetchRequests, 10_000);
-      return () => clearInterval(timer);
-    }
+  const handleSearch = (val) => {
+    setSearch(val);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      fetchRequests(activeFilter, val);
+    }, 300);
+  };
 
-    const channel = pusher.subscribe(`broadcast-${broadcastId}`);
-    channelRef.current = channel;
-    channel.bind("song-request-new", () => fetchRequests());
-    channel.bind("queue-updated", () => fetchRequests());
-
-    return () => {
-      channel.unbind_all();
-      pusher.unsubscribe(`broadcast-${broadcastId}`);
-      channelRef.current = null;
-    };
-  }, [broadcastId, fetchRequests]);
-
-  const handleStatusUpdate = async (id, newStatus) => {
-    setActionLoading(id);
+  const updateStatus = async (id, status, rejectedReason) => {
+    setLoadingId(id);
     try {
-      const res = await fetch(`/api/song-request/${id}/status`, {
+      await fetch(`/api/song-request/${id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ status, rejectedReason }),
       });
-      if (res.ok) {
-        await fetchRequests();
-      }
-    } catch { /* noop */ }
-    finally {
-      setActionLoading(null);
+      await fetchRequests(activeFilter, search);
+    } catch {
+      alert("Gagal mengubah status. Coba lagi.");
+    } finally {
+      setLoadingId(null);
     }
   };
 
-  const handleReject = async () => {
-    if (!rejectModal) return;
-    setActionLoading(rejectModal);
-    try {
-      const res = await fetch(`/api/song-request/${rejectModal}/reject`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason: rejectReason.trim() || null }),
-      });
-      if (res.ok) {
-        await fetchRequests();
-        setRejectModal(null);
-        setRejectReason("");
-      }
-    } catch { /* noop */ }
-    finally {
-      setActionLoading(null);
-    }
+  const handleRejectClick = (id) => {
+    setRejectReason("");
+    setRejectModal({ open: true, id });
   };
 
-  const filteredRequests = requests.filter((r) => {
-    if (activeTab !== "ALL" && r.status !== activeTab) return false;
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      return (
-        r.songTitle.toLowerCase().includes(q) ||
-        r.songArtist.toLowerCase().includes(q) ||
-        r.guestName.toLowerCase().includes(q)
-      );
-    }
-    return true;
-  });
+  const handleRejectConfirm = async () => {
+    if (!rejectReason.trim()) return;
+    setIsRejecting(true);
+    await updateStatus(rejectModal.id, "REJECTED", rejectReason.trim());
+    setIsRejecting(false);
+    setRejectModal({ open: false, id: null });
+    setRejectReason("");
+  };
 
-  if (!session) {
-    return <div className="p-8 text-center font-body">Loading...</div>;
-  }
+  const pendingCount = counts["PENDING"] || 0;
 
   return (
-    <div className="max-w-6xl mx-auto">
-      <div className="mb-8">
+    <div className="font-plus-jakarta-sans space-y-6">
+      {/* Header */}
+      <div>
         <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-heading font-bold text-gray-800">
+          <h1 className="text-3xl font-plus-jakarta-sans font-bold text-gray-800">
             Song Requests
           </h1>
           {pendingCount > 0 && (
-            <span className="bg-red-500 text-white text-xs font-body font-bold px-2.5 py-1 rounded-full">
+            <span className="bg-[#D83232] text-white text-xs font-bold px-2 py-0.5 rounded-full">
               {pendingCount}
             </span>
           )}
         </div>
-        <p className="text-gray-600 font-body mt-1">
+        <p className="text-gray-500 font-plus-jakarta-sans mt-1">
           Kelola request lagu dari pendengar selama siaran live.
         </p>
       </div>
 
-      {!broadcastId ? (
-        <div className="bg-white p-12 rounded-xl shadow-md text-center">
-          <FiMusic className="mx-auto text-gray-300 mb-4" size={48} />
-          <p className="text-gray-500 font-body text-lg">
-            Tidak ada siaran aktif saat ini.
-          </p>
-          <p className="text-gray-400 font-body text-sm mt-1">
-            Request lagu akan muncul saat siaran live dimulai.
-          </p>
+      {/* Card */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        {/* Filter tabs */}
+        <div className="px-6 pt-5 pb-0 flex items-center gap-2 flex-wrap border-b border-gray-100">
+          {FILTERS.map((f) => (
+            <button
+              key={f}
+              onClick={() => setActiveFilter(f)}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium mb-3 transition-colors ${
+                activeFilter === f
+                  ? "bg-[#D83232] text-white"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              {FILTER_LABELS[f]}
+              {counts[f] !== undefined && (
+                <span className="ml-1.5 opacity-80">
+                  {f === "ALL" ? counts["ALL"] || requests.length : counts[f] || 0}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
-      ) : (
-        <div className="bg-white rounded-xl shadow-md overflow-hidden">
-          {/* Toolbar */}
-          <div className="p-4 border-b border-gray-200 space-y-3">
-            {/* Filter tabs */}
-            <div className="flex flex-wrap gap-2">
-              {STATUS_TABS.map((tab) => {
-                const count =
-                  tab.key === "ALL"
-                    ? requests.length
-                    : requests.filter((r) => r.status === tab.key).length;
-                return (
-                  <button
-                    key={tab.key}
-                    onClick={() => setActiveTab(tab.key)}
-                    className={`px-3 py-1.5 text-sm font-body rounded-full transition-colors cursor-pointer ${
-                      activeTab === tab.key
-                        ? "bg-[#D83232] text-white"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                    }`}
-                  >
-                    {tab.label}
-                    {count > 0 && (
-                      <span className="ml-1.5 text-xs opacity-75">
-                        {count}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
 
-            {/* Search */}
-            <div className="relative max-w-sm">
-              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Cari judul, artis, atau nama..."
-                className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm font-body text-gray-900 focus:ring-2 focus:ring-[#D83232] focus:border-[#D83232] outline-none"
-              />
-            </div>
+        {/* Search */}
+        <div className="px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 max-w-md focus-within:border-[#D83232] focus-within:ring-1 focus-within:ring-[#D83232]/10 transition-all">
+            <FiSearch className="text-gray-400 flex-shrink-0" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => handleSearch(e.target.value)}
+              placeholder="Cari judul, artis, atau nama requester..."
+              className="flex-1 text-sm outline-none bg-transparent text-gray-700 placeholder-gray-400"
+            />
           </div>
+        </div>
 
-          {/* Table */}
-          {loading ? (
-            <div className="p-8 text-center font-body text-gray-400">
-              Memuat...
+        {/* Table */}
+        <div className="overflow-x-auto">
+          {isLoading ? (
+            <div className="py-16 text-center text-gray-400 text-sm">
+              <div className="w-6 h-6 border-2 border-gray-200 border-t-[#D83232] rounded-full animate-spin mx-auto mb-3" />
+              Memuat data...
             </div>
-          ) : filteredRequests.length === 0 ? (
-            <div className="p-8 text-center font-body text-gray-400">
-              Tidak ada request ditemukan.
+          ) : requests.length === 0 ? (
+            <div className="py-16 text-center">
+              <FiMusic className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-400 text-sm">Belum ada request lagu.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-gray-50 text-left text-xs font-body font-semibold text-gray-500 uppercase tracking-wide">
-                    <th className="px-4 py-3">Lagu</th>
-                    <th className="px-4 py-3 hidden md:table-cell">Requester</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3 hidden sm:table-cell">Waktu</th>
-                    <th className="px-4 py-3 text-right">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {filteredRequests.map((req) => (
-                    <tr key={req.id} className="hover:bg-gray-50">
-                      {/* Song info */}
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          {req.songCoverUrl ? (
-                            <img
-                              src={req.songCoverUrl.replace("600x600", "100x100")}
-                              alt=""
-                              className="w-10 h-10 rounded-md object-cover flex-shrink-0"
-                            />
-                          ) : (
-                            <div className="w-10 h-10 rounded-md bg-gray-100 flex items-center justify-center flex-shrink-0">
-                              <FiMusic className="text-gray-400" size={14} />
-                            </div>
-                          )}
-                          <div className="min-w-0">
-                            <p className="text-sm font-body font-medium text-gray-900 truncate max-w-[200px]">
-                              {req.songTitle}
-                            </p>
-                            <p className="text-xs text-gray-500 font-body truncate max-w-[200px]">
-                              {req.songArtist}
-                            </p>
+            <table className="w-full">
+              <thead>
+                <tr className="text-xs font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
+                  <th className="px-6 py-3 text-left">Lagu</th>
+                  <th className="px-6 py-3 text-left">Requester</th>
+                  <th className="px-6 py-3 text-left">Status</th>
+                  <th className="px-6 py-3 text-left">Waktu</th>
+                  <th className="px-6 py-3 text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {requests.map((req) => (
+                  <tr key={req.id} className="hover:bg-gray-50/50 transition-colors">
+                    {/* Lagu */}
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        {req.songCoverUrl ? (
+                          <img
+                            src={req.songCoverUrl}
+                            alt={req.songTitle}
+                            className="w-10 h-10 rounded-md object-cover flex-shrink-0 bg-gray-100"
+                            onError={(e) => { e.target.style.display = "none"; }}
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-md bg-gray-100 flex items-center justify-center flex-shrink-0">
+                            <FiMusic className="text-gray-300 w-4 h-4" />
                           </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 truncate max-w-[200px]">
+                            {req.songTitle}
+                          </p>
+                          <p className="text-xs text-gray-500 truncate max-w-[200px]">
+                            {req.songArtist}
+                          </p>
                         </div>
-                      </td>
+                      </div>
+                    </td>
 
-                      {/* Requester */}
-                      <td className="px-4 py-3 hidden md:table-cell">
-                        <p className="text-sm font-body text-gray-900">
-                          {req.guestName}
+                    {/* Requester */}
+                    <td className="px-6 py-4">
+                      <p className="text-sm font-medium text-gray-800">{req.guestName}</p>
+                      {req.message && (
+                        <p className="text-xs text-gray-400 italic mt-0.5 max-w-[180px] truncate">
+                          "{req.message}"
                         </p>
-                        {req.message && (
-                          <p className="text-xs text-gray-400 font-body italic truncate max-w-[200px]">
-                            &quot;{req.message}&quot;
-                          </p>
-                        )}
-                      </td>
+                      )}
+                    </td>
 
-                      {/* Status */}
-                      <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-body font-medium ${STATUS_BADGE[req.status]}`}
-                        >
-                          {STATUS_LABEL[req.status]}
-                        </span>
-                        {req.status === "REJECTED" && req.rejectedReason && (
-                          <p className="text-xs text-red-400 font-body mt-1 truncate max-w-[150px]" title={req.rejectedReason}>
-                            {req.rejectedReason}
-                          </p>
-                        )}
-                      </td>
+                    {/* Status */}
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[req.status]}`}>
+                        {STATUS_LABELS[req.status]}
+                      </span>
+                      {req.status === "REJECTED" && req.rejectedReason && (
+                        <p className="text-xs text-[#D83232] mt-0.5 italic">{req.rejectedReason}</p>
+                      )}
+                    </td>
 
-                      {/* Time */}
-                      <td className="px-4 py-3 hidden sm:table-cell">
-                        <span
-                          className="text-xs text-gray-400 font-body"
-                          title={new Date(req.createdAt).toLocaleString("id-ID")}
-                        >
-                          {formatRelativeTime(req.createdAt)}
-                        </span>
-                      </td>
+                    {/* Waktu */}
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-1 text-xs text-gray-400">
+                        <FiClock className="w-3 h-3" />
+                        {formatTime(req.createdAt)}
+                      </div>
+                    </td>
 
-                      {/* Actions */}
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
-                          {req.status === "PENDING" && (
-                            <>
-                              <button
-                                onClick={() => handleStatusUpdate(req.id, "QUEUED")}
-                                disabled={actionLoading === req.id}
-                                className="px-3 py-1.5 text-xs font-body font-medium bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
-                              >
-                                Antrikan
-                              </button>
-                              <button
-                                onClick={() => setRejectModal(req.id)}
-                                disabled={actionLoading === req.id}
-                                className="px-3 py-1.5 text-xs font-body font-medium bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
-                              >
-                                Tolak
-                              </button>
-                            </>
-                          )}
-                          {req.status === "QUEUED" && (
-                            <>
-                              <button
-                                onClick={() => handleStatusUpdate(req.id, "NOW_PLAYING")}
-                                disabled={actionLoading === req.id}
-                                className="px-3 py-1.5 text-xs font-body font-medium bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
-                              >
-                                Putar
-                              </button>
-                              <button
-                                onClick={() => setRejectModal(req.id)}
-                                disabled={actionLoading === req.id}
-                                className="px-3 py-1.5 text-xs font-body font-medium bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
-                              >
-                                Tolak
-                              </button>
-                            </>
-                          )}
-                          {req.status === "NOW_PLAYING" && (
+                    {/* Aksi */}
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2 justify-end">
+                        {req.status === "PENDING" && (
+                          <>
                             <button
-                              onClick={() => handleStatusUpdate(req.id, "DONE")}
-                              disabled={actionLoading === req.id}
-                              className="px-3 py-1.5 text-xs font-body font-medium bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+                              onClick={() => updateStatus(req.id, "QUEUED")}
+                              disabled={loadingId === req.id}
+                              className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
                             >
-                              Selesai
+                              Antrikan
                             </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                            <button
+                              onClick={() => handleRejectClick(req.id)}
+                              disabled={loadingId === req.id}
+                              className="px-3 py-1.5 bg-[#D83232] hover:bg-[#B72929] text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
+                            >
+                              Tolak
+                            </button>
+                          </>
+                        )}
+                        {req.status === "QUEUED" && (
+                          <>
+                            <button
+                              onClick={() => updateStatus(req.id, "NOW_PLAYING")}
+                              disabled={loadingId === req.id}
+                              className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
+                            >
+                              Putar
+                            </button>
+                            <button
+                              onClick={() => handleRejectClick(req.id)}
+                              disabled={loadingId === req.id}
+                              className="px-3 py-1.5 bg-[#D83232] hover:bg-[#B72929] text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
+                            >
+                              Tolak
+                            </button>
+                          </>
+                        )}
+                        {req.status === "NOW_PLAYING" && (
+                          <button
+                            onClick={() => updateStatus(req.id, "DONE")}
+                            disabled={loadingId === req.id}
+                            className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
+                          >
+                            Selesai
+                          </button>
+                        )}
+                        {(req.status === "DONE" || req.status === "REJECTED") && (
+                          <span className="text-xs text-gray-300">—</span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
-      )}
+      </div>
 
       {/* Reject Modal */}
-      {rejectModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      {rejectModal.open && (
+        <div
+          className="fixed inset-0 z-[200] bg-black/50 flex items-center justify-center p-4"
+          onClick={() => setRejectModal({ open: false, id: null })}
+        >
           <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={() => {
-              setRejectModal(null);
-              setRejectReason("");
-            }}
-          />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-            <button
-              onClick={() => {
-                setRejectModal(null);
-                setRejectReason("");
-              }}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 cursor-pointer"
-            >
-              <FiX size={20} />
-            </button>
-            <h3 className="font-heading font-bold text-lg text-gray-900 mb-1">
-              Tolak Request
-            </h3>
-            <p className="text-sm text-gray-500 font-body mb-4">
-              Berikan alasan penolakan (opsional).
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="font-bold text-gray-900 text-lg mb-1">Tolak Request</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Berikan alasan penolakan untuk pendengar.
             </p>
             <textarea
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
-              maxLength={500}
+              placeholder="Contoh: Lagu sudah diputar sebelumnya..."
               rows={3}
-              placeholder="Alasan penolakan..."
-              className="w-full border border-gray-300 p-3 rounded-lg font-body text-sm text-gray-900 bg-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none resize-none"
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#D83232] focus:ring-2 focus:ring-[#D83232]/10 resize-none"
+              autoFocus
             />
             <div className="flex gap-2 mt-4">
               <button
-                onClick={() => {
-                  setRejectModal(null);
-                  setRejectReason("");
-                }}
-                className="flex-1 py-2.5 border border-gray-300 rounded-full font-body font-medium text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
+                onClick={() => setRejectModal({ open: false, id: null })}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
               >
                 Batal
               </button>
               <button
-                onClick={handleReject}
-                disabled={actionLoading === rejectModal}
-                className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-full font-body font-medium transition-colors disabled:opacity-50 cursor-pointer"
+                onClick={handleRejectConfirm}
+                disabled={isRejecting || !rejectReason.trim()}
+                className="flex-1 py-2.5 rounded-xl bg-[#D83232] hover:bg-[#B72929] text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Tolak Request
+                {isRejecting ? "Menolak..." : "Tolak Request"}
               </button>
             </div>
           </div>

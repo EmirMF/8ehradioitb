@@ -2,7 +2,7 @@
 // Helper dipakai ulang antar route live-chat (bukan route itu sendiri).
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 import { hasAnyRole } from "@/lib/roleUtils";
 import { prisma } from "@/lib/prisma";
 import {

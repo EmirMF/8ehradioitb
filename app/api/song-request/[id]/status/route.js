@@ -1,78 +1,57 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
-import { triggerSongRequestEvent } from "@/lib/pusher";
-import { serializeSongRequest } from "../../_shared";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/app/api/auth/[...nextauth]/options";
+import { hasAnyRole } from "@/lib/roleUtils";
 
-const VALID_TRANSITIONS = {
-  PENDING: ["QUEUED"],
-  QUEUED: ["NOW_PLAYING"],
-  NOW_PLAYING: ["DONE"],
-};
+function isAdmin(roleString) {
+  return hasAnyRole(roleString, ["DEVELOPER", "TECHNIC", "MUSIC"]);
+}
 
-export async function PATCH(request, { params }) {
-  const session = await getServerSession(authOptions);
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { id } = await params;
-
-  let body;
+// PATCH /api/song-request/[id]/status
+export async function PATCH(req, { params }) {
   try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Body tidak valid." }, { status: 400 });
-  }
+    const session = await getServerSession(authOptions);
+    if (!session || !isAdmin(session.user.role)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  const { status: newStatus } = body;
-  if (!newStatus) {
-    return NextResponse.json({ error: "Status wajib diisi." }, { status: 400 });
-  }
+    const { id } = await params;
+    const { status, rejectedReason } = await req.json();
 
-  const songRequest = await prisma.songRequest.findUnique({ where: { id } });
-  if (!songRequest) {
-    return NextResponse.json({ error: "Request tidak ditemukan." }, { status: 404 });
-  }
+    const validStatuses = ["PENDING", "QUEUED", "NOW_PLAYING", "DONE", "REJECTED"];
+    if (!validStatuses.includes(status)) {
+      return NextResponse.json({ error: "Status tidak valid" }, { status: 400 });
+    }
 
-  const allowed = VALID_TRANSITIONS[songRequest.status];
-  if (!allowed || !allowed.includes(newStatus)) {
-    return NextResponse.json(
-      { error: `Transisi dari ${songRequest.status} ke ${newStatus} tidak valid.` },
-      { status: 400 },
-    );
-  }
+    const current = await prisma.songRequest.findUnique({ where: { id } });
+    if (!current) {
+      return NextResponse.json({ error: "Request tidak ditemukan" }, { status: 404 });
+    }
 
-  const operations = [];
-
-  if (newStatus === "NOW_PLAYING") {
-    operations.push(
-      prisma.songRequest.updateMany({
+    // Jika NOW_PLAYING, pastikan hanya 1 yang playing dalam broadcast yang sama.
+    if (status === "NOW_PLAYING") {
+      await prisma.songRequest.updateMany({
         where: {
-          broadcastId: songRequest.broadcastId,
+          broadcastId: current.broadcastId,
           status: "NOW_PLAYING",
           id: { not: id },
         },
-        data: { status: "DONE" },
-      }),
-    );
-  }
+        data: { status: "QUEUED" },
+      });
+    }
 
-  operations.push(
-    prisma.songRequest.update({
+    const updated = await prisma.songRequest.update({
       where: { id },
-      data: { status: newStatus },
-    }),
-  );
+      data: {
+        status,
+        rejectedReason: status === "REJECTED" ? (rejectedReason || null) : null,
+      },
+    });
 
-  const results = await prisma.$transaction(operations);
-  const updated = results[results.length - 1];
-
-  await triggerSongRequestEvent(songRequest.broadcastId, {
-    name: "queue-updated",
-    data: JSON.stringify({ requestId: id, status: newStatus }),
-  });
-
-  return NextResponse.json({ request: serializeSongRequest(updated) });
+    return NextResponse.json({ success: true, request: updated });
+  } catch (error) {
+    console.error("PATCH song-request status error:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
 }

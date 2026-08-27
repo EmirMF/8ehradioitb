@@ -4,10 +4,10 @@ import "./globals.css";
 import GlobalAudioPlayer from "@/app/components/GlobalAudioPlayer";
 import AuthProvider from "@/app/components/AuthProvider";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 import StructuredData from "@/app/components/StructuredData";
 import ChatWidgetWrapper from "@/app/components/ai/ChatWidgetWrapper";
-import LiveProviders from "@/app/components/LiveProviders";
+import ToastProvider from "@/app/components/ToastProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -157,11 +157,10 @@ export default async function RootLayout({ children }) {
         className={`${geistSans.variable} ${geistMono.variable} ${plusJakartaSans.variable} ${arimo.variable} ${instrumentSerif.variable} antialiased`}
       >
         <AuthProvider session={session}>
-          <LiveProviders>{children}</LiveProviders>
-        </AuthProvider>
-        <div>
+          {children}
           <GlobalAudioPlayer />
-        </div>
+          <ToastProvider />
+        </AuthProvider>
         {/* <ChatWidgetWrapper /> */}
       </body>
     </html>
