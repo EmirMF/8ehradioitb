@@ -9,7 +9,6 @@ const DEFAULT_STREAM_URL =
 function normalizeStreamUrl(url) {
   const cleaned = typeof url === "string" ? url.trim() : "";
   if (!cleaned) return DEFAULT_STREAM_URL;
-  if (cleaned.includes("free-shoutcast.com")) return DEFAULT_STREAM_URL;
   if (/^https?:\/\//i.test(cleaned)) return cleaned;
   return `https://${cleaned.replace(/^\/+/, "")}`;
 }
@@ -28,6 +27,15 @@ function toBrowserPlayableUrl(url) {
     return `/api/stream?url=${encodeURIComponent(url)}`;
   }
   return url;
+}
+
+function isDirectStreamUrl(url) {
+  return (
+    url.includes("?") ||
+    url.includes("/listen/") ||
+    url.endsWith(".mp3") ||
+    /\/stream\/[^/?#]+$/i.test(url)
+  );
 }
 
 export const useRadioStream = () => {
@@ -64,8 +72,8 @@ export const useRadioStream = () => {
   const randomCode = Math.random().toString(36).substring(2, 8);
   const baseUrl = STREAM_CONFIG.baseUrl;
   
-  // Kalau stream service/direct file stream, cukup tambah query param nocache
-  if (baseUrl.includes("/listen/") || baseUrl.endsWith(".mp3")) {
+  // Kalau direct stream URL, cukup tambah query param nocache.
+  if (isDirectStreamUrl(baseUrl)) {
     return toBrowserPlayableUrl(addNoCache(baseUrl, randomCode));
   }
   
@@ -107,8 +115,8 @@ export const useRadioStream = () => {
     const randomCode = Math.random().toString(36).substring(2, 8);
     const fallbackUrl = STREAM_CONFIG.fallbackUrl;
     
-    // Sama seperti generateStreamUrl, deteksi stream service atau Shoutcast
-    if (fallbackUrl.includes("/listen/") || fallbackUrl.endsWith(".mp3")) {
+    // Sama seperti generateStreamUrl, deteksi direct stream URL.
+    if (isDirectStreamUrl(fallbackUrl)) {
       setStreamUrl(toBrowserPlayableUrl(addNoCache(fallbackUrl, randomCode)));
     } else {
       setStreamUrl(
