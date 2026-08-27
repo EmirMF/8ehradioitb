@@ -104,13 +104,13 @@ export default async function Home() {
     <main className="flex flex-col min-h-screen bg-white font-sans">
       <Navbar />
       <LiveBanner />
-      {/* <HeroSection />
+      <HeroSection />
       <PodcastList podcasts={serializedPodcasts} />
-      <NewsList newsItems={serializedNews} /> */}
+      <NewsList newsItems={serializedNews} />
       {/* <ProgramsSection /> */}
-      {/* <TuneTracker tunes={serializedTunes} meta={serializedMeta} />
+      <TuneTracker tunes={serializedTunes} meta={serializedMeta} />
       <AnnouncersSection />
-      <FooterSection /> */}
+      <FooterSection />
     </main>
   );
 }

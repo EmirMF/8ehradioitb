@@ -159,7 +159,7 @@ export default function Navbar() {
         <div className="flex justify-between items-center h-16">
           {/* Logo + Mobile Play Button + On Air Mobile */}
           <div className="flex items-center space-x-3">
-            {/* <Image
+            <Image
               src="/8eh.png"
               alt="8EH Logo"
               width={61}
@@ -167,9 +167,9 @@ export default function Navbar() {
               className="cursor-pointer"
               onClick={() => router.push("/")}
               priority
-            /> */}
+            />
 
-            {/* <NavbarAudio variant="mobile" onAir={onAir} />
+            <NavbarAudio variant="mobile" onAir={onAir} />
 
             {onAir && (
               <span className="flex items-center gap-1 font-body">
@@ -181,15 +181,15 @@ export default function Navbar() {
                   On Air
                 </span>
               </span>
-            )} */}
+            )}
           </div>
 
-          {/* <NavbarDesktop
+          <NavbarDesktop
             openDropdown={openDropdown}
             onDropdownToggle={handleDropdown}
             discoverLinks={discoverLinks}
             partnershipLinks={partnershipLinks}
-          /> */}
+          />
 
           <NavbarAudio variant="desktop" onAir={onAir} />
 
