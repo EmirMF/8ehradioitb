@@ -6,6 +6,7 @@ import {
   FiAlertTriangle,
   FiCheckCircle,
   FiClock,
+  FiInfo,
   FiPlay,
   FiRefreshCw,
   FiRotateCw,
@@ -53,112 +54,38 @@ const ACTIONS = {
   },
 };
 
-const PROCESS_MESSAGES = {
-  creating:
-    "Server sedang dibuat oleh provider. Tetap buka halaman ini sampai status berubah.",
-  booting:
-    "Server sedang booting dan menunggu stream service siap. Jangan tutup atau pindah halaman dulu.",
-  ending:
-    "Broadcast sedang diakhiri. Tetap di halaman ini sampai proses selesai.",
-  snapshotting:
-    "Snapshot sedang dibuat. Jangan tutup halaman ini agar proses bisa lanjut ke delete server.",
-  deleting:
-    "Server lama sedang dihapus setelah snapshot berhasil. Tunggu sampai status kembali idle.",
-};
-
-const START_STEPS = [
-  {
-    id: "creating",
-    title: "Create server",
-    description: "Provider membuat VPS baru dari snapshot terakhir.",
-    statuses: ["creating"],
-  },
-  {
-    id: "booting",
-    title: "Boot server",
-    description: "VPS menyala, cloud-init jalan, dan DNS external mulai update.",
-    statuses: ["booting"],
-  },
-  {
-    id: "health-check",
-    title: "Check stream",
-    description: "Menunggu public stream URL sehat dan siap dipakai.",
-    phases: ["health-check"],
-  },
-  {
-    id: "running",
-    title: "Ready",
-    description: "Server siap untuk siaran.",
-    statuses: ["running"],
-  },
-];
-
-const END_STEPS = [
-  {
-    id: "snapshotting",
-    title: "Create snapshot",
-    description: "Menyimpan kondisi server terakhir sebagai snapshot baru.",
-    statuses: ["snapshotting"],
-  },
-  {
-    id: "delete-previous",
-    title: "Remove old snapshot",
-    description: "Snapshot lama dihapus setelah snapshot baru aman.",
-    phases: ["delete-previous-snapshot"],
-  },
-  {
-    id: "deleting",
-    title: "Delete server",
-    description: "VPS broadcast dihapus supaya biaya berhenti.",
-    statuses: ["deleting"],
-  },
-  {
-    id: "idle",
-    title: "Finished",
-    description: "Broadcast selesai dan server sudah tidak aktif.",
-    statuses: ["idle"],
-  },
-];
-
-function statusTone(status) {
-  if (status === "running") return "bg-green-100 text-green-700 border-green-200";
-  if (status === "failed") return "bg-red-100 text-red-700 border-red-200";
-  if (TRANSIENT_STATUSES.has(status)) {
-    return "bg-blue-100 text-blue-700 border-blue-200";
-  }
-  return "bg-gray-100 text-gray-700 border-gray-200";
-}
-
 function formatDate(value) {
   if (!value) return "-";
   return new Date(value).toLocaleString();
 }
 
-function getUptime(startedAt) {
-  if (!startedAt) return "-";
-  const seconds = Math.max(0, Math.floor((Date.now() - new Date(startedAt)) / 1000));
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  return `${minutes}m`;
-}
-
 function getRuntimeMinutes(startedAt) {
   if (!startedAt) return 0;
-  return Math.max(0, Math.floor((Date.now() - new Date(startedAt)) / 1000 / 60));
+  return Math.max(
+    0,
+    Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000 / 60),
+  );
+}
+
+function getUptime(startedAt) {
+  const minutes = getRuntimeMinutes(startedAt);
+  if (!startedAt) return "-";
+  if (minutes >= 60) return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+  return `${minutes}m`;
 }
 
 function getMinutesUntil(value) {
   if (!value) return null;
-  const minutes = Math.ceil((new Date(value).getTime() - Date.now()) / 1000 / 60);
+  const minutes = Math.ceil(
+    (new Date(value).getTime() - Date.now()) / 1000 / 60,
+  );
   return Number.isFinite(minutes) ? minutes : null;
 }
 
 function getCanEndBroadcast(state, config) {
   if (state.status !== "running") return false;
   const minRuntime = config.minRuntimeMinutes || 0;
-  if (!minRuntime) return true;
-  return getRuntimeMinutes(state.startedAt) >= minRuntime;
+  return !minRuntime || getRuntimeMinutes(state.startedAt) >= minRuntime;
 }
 
 function isLikelyNetworkGlitch(error) {
@@ -172,303 +99,109 @@ function isLikelyNetworkGlitch(error) {
   );
 }
 
-function getLifecycleMode(state) {
-  if (["creating", "booting", "running"].includes(state.status)) return "start";
-  if (["ending", "snapshotting", "deleting"].includes(state.status)) return "end";
-  if (state.status === "idle" && state.lastAction === "end") return "end";
-  if (state.status === "failed" && state.lastAction === "end") return "end";
-  return "start";
+function getDisplayStatus(status) {
+  if (status === "idle") return "Off";
+  if (["creating", "booting"].includes(status)) return "Starting";
+  if (status === "running") return "Ready";
+  if (["ending", "snapshotting", "deleting"].includes(status)) return "Ending";
+  if (status === "failed") return "Needs Attention";
+  return "Checking";
 }
 
-function getStepState(step, index, steps, state) {
-  const status = state.status || "idle";
-  const phase = state.phase || "";
-  const activeIndex = steps.findIndex(
-    (item) =>
-      item.statuses?.includes(status) ||
-      item.phases?.some((itemPhase) => phase.includes(itemPhase)),
-  );
-  const currentIndex =
-    activeIndex >= 0
-      ? activeIndex
-      : status === "failed"
-        ? Math.max(0, steps.length - 2)
-        : 0;
-
-  if (status === "failed" && index === currentIndex) return "failed";
-  if (index < currentIndex) return "done";
-  if (index === currentIndex) return "active";
-  return "pending";
-}
-
-function getPrimaryStatusCopy(state, runningAction) {
-  if (runningAction) {
-    return {
-      title: "Sending request",
-      description: "Permintaan sedang dikirim. Kalau koneksi sempat putus, halaman ini akan tetap refresh state.",
-    };
-  }
-
+function getStatusCopy(state) {
   if (state.status === "idle") {
     return {
-      title: "Server is off",
-      description: "Mulai server sebelum siaran. Setelah start, tetap buka halaman ini sampai status ready.",
+      description: "Tekan Start Server sebelum siaran dimulai.",
+      tone: "bg-gray-50 border-gray-200 text-gray-700",
+      iconTone: "bg-gray-100 text-gray-700",
     };
   }
-
+  if (["creating", "booting"].includes(state.status)) {
+    return {
+      description: "Tunggu sampai status Ready sebelum dipakai siaran.",
+      tone: "bg-blue-50 border-blue-200 text-blue-800",
+      iconTone: "bg-blue-100 text-blue-700",
+    };
+  }
   if (state.status === "running") {
     return {
-      title: "Ready for broadcast",
-      description: "Server sudah aktif. Setelah siaran selesai, gunakan End Broadcast agar snapshot dibuat dan VPS dihapus.",
+      description: "Server aktif. Setelah siaran selesai, tekan End Broadcast.",
+      tone: "bg-green-50 border-green-200 text-green-800",
+      iconTone: "bg-green-100 text-green-700",
     };
   }
-
+  if (["ending", "snapshotting", "deleting"].includes(state.status)) {
+    return {
+      description: "Sistem sedang menyimpan data siaran dan mematikan server.",
+      tone: "bg-blue-50 border-blue-200 text-blue-800",
+      iconTone: "bg-blue-100 text-blue-700",
+    };
+  }
   if (state.status === "failed") {
     return {
-      title: "Needs attention",
-      description: "Proses berhenti karena error. Cek Last error, lalu Retry jika kondisinya sudah aman.",
+      description: "Proses berhenti. Cek pesan error, lalu Retry jika sudah siap.",
+      tone: "bg-red-50 border-red-200 text-red-800",
+      iconTone: "bg-red-100 text-red-700",
     };
   }
-
   return {
-    title: "Processing",
-    description:
-      PROCESS_MESSAGES[state.status] ||
-      "Lifecycle sedang berjalan. Halaman ini melakukan polling untuk melanjutkan proses.",
+    description: "Status server sedang dicek.",
+    tone: "bg-yellow-50 border-yellow-200 text-yellow-800",
+    iconTone: "bg-yellow-100 text-yellow-700",
   };
 }
 
-function InfoCard({ label, value }) {
+function getProgressLabel(status) {
+  if (["creating", "booting"].includes(status)) return "Menyiapkan server siaran";
+  if (status === "running") return "Server siap dipakai";
+  if (["ending", "snapshotting", "deleting"].includes(status)) {
+    return "Menyimpan data siaran dan mematikan server";
+  }
+  if (status === "failed") return "Proses butuh perhatian";
+  return "Menunggu aksi";
+}
+
+function getAutoEndStatus(state, config, minutesUntilAutoEnd) {
+  if (!config.watchdogConfigured) return "Monitor belum dikonfigurasi";
+  if (["ending", "snapshotting", "deleting"].includes(state.status)) {
+    return "Auto End sedang berjalan";
+  }
+  if (state.status === "failed" && state.autoEndStartedAt) {
+    return "Auto End butuh perhatian";
+  }
+  if (state.status !== "running") return "Auto End standby";
+  if (minutesUntilAutoEnd === null) return "Auto End aktif";
+  if (minutesUntilAutoEnd <= 0) return "Auto End menunggu monitor";
+  return `Auto End aktif, ${minutesUntilAutoEnd} menit lagi`;
+}
+
+function getSimpleError(message) {
+  if (!message) return "";
+  const text = message.toLowerCase();
+  if (text.includes("timed out") || text.includes("fetch failed")) {
+    return "Koneksi ke server belum stabil. Tunggu sebentar, lalu refresh atau retry.";
+  }
+  if (text.includes("deleted outside")) {
+    return "Server sudah tidak ditemukan. Refresh untuk sinkronkan status.";
+  }
+  if (text.includes("minimum") || text.includes("at least")) return message;
+  return "Ada kendala saat memproses server siaran.";
+}
+
+function InfoCard({ label, value, highlight = false }) {
   return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
-      <p className="text-xs uppercase tracking-wide text-gray-500 font-bold">
+    <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+      <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
         {label}
       </p>
-      <p className="font-body text-gray-900 mt-2 break-all">{value || "-"}</p>
+      <p
+        className={`mt-2 break-all font-body ${
+          highlight ? "text-xl font-bold text-gray-900" : "text-gray-900"
+        }`}
+      >
+        {value || "-"}
+      </p>
     </div>
-  );
-}
-
-function getActionHelpText(status) {
-  if (status === "idle") {
-    return "Klik Start Server sebelum siaran. Setelah itu tunggu sampai status Ready.";
-  }
-  if (status === "running") {
-    return "Server sedang aktif. Klik End Broadcast setelah siaran benar-benar selesai.";
-  }
-  if (status === "failed") {
-    return "Cek Last error dulu. Retry akan melanjutkan proses dari phase terakhir.";
-  }
-  return "Action dikunci sementara karena lifecycle sedang berjalan.";
-}
-
-function getActionDisabledReason(actionId, state, config) {
-  if (actionId !== "end") return "";
-  if (getCanEndBroadcast(state, config)) return "";
-
-  const minRuntime = config.minRuntimeMinutes || 0;
-  const runtime = getRuntimeMinutes(state.startedAt);
-  return `End Broadcast baru bisa dipakai setelah ${minRuntime} menit. Runtime sekarang ${runtime} menit.`;
-}
-
-function RuntimeWarning({ state, config }) {
-  if (state.status !== "running") return null;
-
-  const runtimeMinutes = getRuntimeMinutes(state.startedAt);
-  const warnAfter = config.warnAfterMinutes || 180;
-  const maxRuntime = config.maxRuntimeMinutes || 240;
-  const minutesLeft = getMinutesUntil(state.autoEndAt);
-  const isOverLimit = minutesLeft !== null && minutesLeft <= 30;
-  const shouldWarn = runtimeMinutes >= warnAfter || isOverLimit;
-
-  if (!shouldWarn) return null;
-
-  return (
-    <div
-      className={`font-body border p-4 rounded-md text-sm flex gap-3 ${
-        isOverLimit
-          ? "bg-red-50 border-red-200 text-red-700"
-          : "bg-yellow-50 border-yellow-200 text-yellow-800"
-      }`}
-    >
-      <FiAlertTriangle className="mt-0.5 flex-shrink-0" />
-      <div>
-        <p className="font-bold">
-          {isOverLimit ? "Auto End is close" : "Broadcast has been running for a while"}
-        </p>
-        <p className="mt-1">
-          Server sudah berjalan {runtimeMinutes} menit. Auto end dijadwalkan{" "}
-          {state.autoEndAt ? formatDate(state.autoEndAt) : `setelah ${maxRuntime} menit`}.
-        </p>
-        <p className="text-xs mt-2">
-          Kalau siaran masih berlangsung, gunakan Extend Time untuk menambah waktu.
-          Kalau sudah selesai, klik End Broadcast.
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function OperationSummary({ state, runningAction }) {
-  const copy = getPrimaryStatusCopy(state, runningAction);
-  const isBusy = TRANSIENT_STATUSES.has(state.status) || runningAction;
-  const Icon =
-    state.status === "running"
-      ? FiCheckCircle
-      : state.status === "failed"
-        ? FiAlertTriangle
-        : isBusy
-          ? FiRefreshCw
-          : FiServer;
-
-  return (
-    <section className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
-      <div className="flex items-start gap-4">
-        <div
-          className={`w-12 h-12 rounded-lg flex items-center justify-center ${
-            state.status === "running"
-              ? "bg-green-100 text-green-700"
-              : state.status === "failed"
-                ? "bg-red-100 text-red-700"
-                : isBusy
-                  ? "bg-blue-100 text-blue-700"
-                  : "bg-gray-100 text-gray-700"
-          }`}
-        >
-          <Icon size={22} className={isBusy ? "animate-spin" : ""} />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="font-heading font-bold text-2xl text-gray-900">
-              {copy.title}
-            </h2>
-            <span
-              className={`inline-flex px-3 py-1 rounded-full border text-xs font-bold ${statusTone(
-                state.status,
-              )}`}
-            >
-              {state.status || "unknown"}
-            </span>
-          </div>
-          <p className="text-sm text-gray-600 font-body mt-2 leading-relaxed">
-            {copy.description}
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
-            <div className="rounded-md bg-gray-50 border border-gray-100 p-3">
-              <p className="text-xs text-gray-500 font-bold uppercase">
-                Current phase
-              </p>
-              <p className="text-sm font-body text-gray-900 mt-1 break-all">
-                {state.phase || "-"}
-              </p>
-            </div>
-            <div className="rounded-md bg-gray-50 border border-gray-100 p-3">
-              <p className="text-xs text-gray-500 font-bold uppercase">
-                Active IP
-              </p>
-              <p className="text-sm font-body text-gray-900 mt-1 break-all">
-                {state.activeServerIp || "-"}
-              </p>
-            </div>
-            <div className="rounded-md bg-gray-50 border border-gray-100 p-3">
-              <p className="text-xs text-gray-500 font-bold uppercase">
-                Uptime
-              </p>
-              <p className="text-sm font-body text-gray-900 mt-1">
-                {getUptime(state.startedAt)}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function LifecycleTimeline({ state }) {
-  const mode = getLifecycleMode(state);
-  const steps = mode === "end" ? END_STEPS : START_STEPS;
-  const title = mode === "end" ? "End Broadcast Flow" : "Start Server Flow";
-  const helper =
-    mode === "end"
-      ? "Snapshot dulu, baru server dihapus. Kalau snapshot gagal, server tidak dihapus."
-      : "Server dibuat, booting, lalu public stream URL dicek sampai siap.";
-
-  return (
-    <section className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-5">
-        <div>
-          <h2 className="font-heading font-bold text-xl text-gray-900">
-            {title}
-          </h2>
-          <p className="text-sm text-gray-500 font-body mt-1">{helper}</p>
-        </div>
-        {TRANSIENT_STATUSES.has(state.status) && (
-          <span className="inline-flex items-center gap-2 text-xs font-bold text-blue-700 bg-blue-50 border border-blue-100 rounded-full px-3 py-1">
-            <FiRefreshCw className="animate-spin" />
-            Auto refreshing
-          </span>
-        )}
-      </div>
-
-      <div className="space-y-3">
-        {steps.map((step, index) => {
-          const stepState = getStepState(step, index, steps, state);
-          const isDone = stepState === "done";
-          const isActive = stepState === "active";
-          const isFailed = stepState === "failed";
-
-          return (
-            <div
-              key={step.id}
-              className={`flex gap-3 rounded-lg border p-4 ${
-                isFailed
-                  ? "border-red-200 bg-red-50"
-                  : isActive
-                    ? "border-blue-200 bg-blue-50"
-                    : isDone
-                      ? "border-green-100 bg-green-50"
-                      : "border-gray-200 bg-white"
-              }`}
-            >
-              <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold ${
-                  isFailed
-                    ? "bg-red-600 text-white"
-                    : isDone
-                      ? "bg-green-600 text-white"
-                      : isActive
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-100 text-gray-500"
-                }`}
-              >
-                {isDone ? <FiCheckCircle /> : index + 1}
-              </div>
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="font-heading font-bold text-gray-900">
-                    {step.title}
-                  </p>
-                  {isActive && (
-                    <span className="text-[11px] font-bold uppercase text-blue-700">
-                      Current
-                    </span>
-                  )}
-                  {isFailed && (
-                    <span className="text-[11px] font-bold uppercase text-red-700">
-                      Failed here
-                    </span>
-                  )}
-                </div>
-                <p className="text-sm text-gray-600 font-body mt-1">
-                  {step.description}
-                </p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </section>
   );
 }
 
@@ -493,12 +226,13 @@ export default function BroadcastServerPage() {
     minutesUntilAutoEnd !== null &&
     minutesUntilAutoEnd <= (config.extendMinutes || 60);
   const selectedAction = confirmAction ? ACTIONS[confirmAction] : null;
+  const statusCopy = getStatusCopy(state);
+  const simpleError = getSimpleError(error || state.lastError);
+  const autoEndStatus = getAutoEndStatus(state, config, minutesUntilAutoEnd);
 
   const availableActions = useMemo(() => {
     if (state.status === "idle") return ["start"];
-    if (state.status === "running") {
-      return canExtend ? ["extend", "end"] : ["end"];
-    }
+    if (state.status === "running") return canExtend ? ["extend", "end"] : ["end"];
     if (state.status === "failed") return ["retry"];
     return [];
   }, [canExtend, state.status]);
@@ -557,6 +291,13 @@ export default function BroadcastServerPage() {
     setConfirmText("");
   };
 
+  const getActionDisabledReason = (actionId) => {
+    if (actionId !== "end" || getCanEndBroadcast(state, config)) return "";
+    const minRuntime = config.minRuntimeMinutes || 0;
+    const runtime = getRuntimeMinutes(state.startedAt);
+    return `End Broadcast baru bisa dipakai setelah ${minRuntime} menit. Sekarang baru ${runtime} menit.`;
+  };
+
   const runAction = async () => {
     if (!confirmAction || !selectedAction) return;
     if (confirmText !== selectedAction.confirm) return;
@@ -574,7 +315,7 @@ export default function BroadcastServerPage() {
     } catch (err) {
       if (isLikelyNetworkGlitch(err)) {
         setSuccess(
-          `${selectedAction.label} may still be processing. Keep this page open while we refresh the state.`,
+          `${selectedAction.label} mungkin tetap berjalan. Halaman ini akan refresh status otomatis.`,
         );
         setError("");
         fetchState({ silent: true });
@@ -601,41 +342,39 @@ export default function BroadcastServerPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      <section className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+    <div className="mx-auto max-w-5xl space-y-6">
+      <section className={`rounded-lg border p-6 shadow-sm ${statusCopy.tone}`}>
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-lg bg-blue-600 text-white flex items-center justify-center">
-              <FiServer size={22} />
+            <div
+              className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg ${statusCopy.iconTone}`}
+            >
+              {isTransient || runningAction ? (
+                <FiRefreshCw className="animate-spin" size={22} />
+              ) : state.status === "running" ? (
+                <FiCheckCircle size={22} />
+              ) : state.status === "failed" ? (
+                <FiAlertTriangle size={22} />
+              ) : (
+                <FiServer size={22} />
+              )}
             </div>
             <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-3xl font-heading font-bold text-gray-900">
-                  Broadcast Control
-                </h1>
-                <span
-                  className={`inline-flex px-3 py-1 rounded-full border text-xs font-bold ${statusTone(
-                    state.status,
-                  )}`}
-                >
-                  {state.status || "unknown"}
-                </span>
-              </div>
-              <p className="text-gray-600 font-body mt-1">
-                Temporary cloud server lifecycle for live broadcast.
+              <p className="text-sm font-bold uppercase tracking-wide opacity-70">
+                Server Siaran
               </p>
-              {state.updatedAt && (
-                <p className="text-xs text-gray-400 font-body mt-2 inline-flex items-center gap-1">
-                  <FiClock size={13} />
-                  Last updated: {formatDate(state.updatedAt)}
-                </p>
-              )}
+              <h1 className="mt-1 font-heading text-3xl font-bold text-gray-900">
+                {getDisplayStatus(state.status)}
+              </h1>
+              <p className="mt-2 max-w-2xl font-body text-sm leading-relaxed">
+                {statusCopy.description}
+              </p>
             </div>
           </div>
           <button
             type="button"
             onClick={() => fetchState()}
-            className="inline-flex items-center justify-center gap-2 bg-gray-900 hover:bg-black text-white px-4 py-2 rounded-md font-body font-semibold cursor-pointer"
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-gray-900 px-4 py-2 font-body font-semibold text-white hover:bg-black"
           >
             <FiRefreshCw className={isTransient ? "animate-spin" : ""} />
             Refresh
@@ -643,87 +382,119 @@ export default function BroadcastServerPage() {
         </div>
       </section>
 
-      {error && (
-        <div className="text-red-600 font-body bg-red-50 border border-red-100 p-3 rounded-md text-sm flex gap-2">
-          <FiAlertTriangle className="mt-0.5 flex-shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-      {success && (
-        <div className="text-green-700 font-body bg-green-50 border border-green-100 p-3 rounded-md text-sm">
-          {success}
-        </div>
+      {simpleError && (
+        <section className="rounded-lg border border-red-100 bg-red-50 p-4 font-body text-sm text-red-700">
+          <div className="flex gap-2">
+            <FiAlertTriangle className="mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="font-bold">{simpleError}</p>
+              {(error || state.lastError) && (
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-xs font-bold">
+                    Technical details
+                  </summary>
+                  <p className="mt-2 break-words text-xs">
+                    {error || state.lastError}
+                  </p>
+                </details>
+              )}
+            </div>
+          </div>
+        </section>
       )}
 
-      <RuntimeWarning state={state} config={config} />
+      {success && (
+        <section className="rounded-lg border border-green-100 bg-green-50 p-3 font-body text-sm text-green-700">
+          {success}
+        </section>
+      )}
 
       {(isTransient || runningAction) && (
-        <div className="text-blue-800 font-body bg-blue-50 border border-blue-200 p-4 rounded-md text-sm flex gap-3">
-          <FiAlertTriangle className="mt-0.5 flex-shrink-0" />
-          <div>
-            <p className="font-bold">Tetap di halaman ini sampai proses selesai.</p>
-            <p className="mt-1">
-              {PROCESS_MESSAGES[state.status] ||
-                "Broadcast Control sedang memproses action. Page ini melakukan polling untuk melanjutkan lifecycle."}
-            </p>
-            <p className="text-xs text-blue-700 mt-2">
-              Status final: <span className="font-bold">running</span> untuk Start,
-              atau <span className="font-bold">idle</span> untuk End Broadcast.
-            </p>
-          </div>
-        </div>
+        <section className="rounded-lg border border-blue-200 bg-blue-50 p-4 font-body text-sm text-blue-800">
+          <p className="font-bold">Tetap di halaman ini sampai proses selesai.</p>
+          <p className="mt-1">
+            {getProgressLabel(state.status)}. Halaman ini refresh otomatis.
+          </p>
+        </section>
       )}
 
       {!config.isConfigured && (
-        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg p-5">
-          <h2 className="font-heading font-bold text-lg mb-2">
-            Server provider is not configured
+        <section className="rounded-lg border border-yellow-200 bg-yellow-50 p-5 text-yellow-800">
+          <h2 className="font-heading text-lg font-bold">
+            Konfigurasi server belum lengkap
           </h2>
-          <p className="font-body text-sm">
-            Missing env: {(config.missing || []).join(", ") || "unknown"}.
-          </p>
-        </div>
+          <details className="mt-2 font-body text-sm">
+            <summary className="cursor-pointer font-bold">Lihat detail</summary>
+            <p className="mt-2">
+              Missing env: {(config.missing || []).join(", ") || "unknown"}.
+            </p>
+          </details>
+        </section>
       )}
 
-      <OperationSummary state={state} runningAction={runningAction} />
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <InfoCard label="Uptime" value={getUptime(state.startedAt)} highlight />
+        <InfoCard
+          label="Auto End"
+          value={state.autoEndAt ? formatDate(state.autoEndAt) : "-"}
+          highlight
+        />
+        <InfoCard label="Active IP" value={state.activeServerIp} highlight />
+      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6">
-        <section className="space-y-4">
-          <LifecycleTimeline state={state} />
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <InfoCard label="Active Server ID" value={state.activeServerId} />
-            <InfoCard label="Server Name" value={state.serverName} />
-            <InfoCard label="Latest Snapshot ID" value={state.latestSnapshotId} />
-            <InfoCard label="Pending Snapshot ID" value={state.pendingSnapshotId} />
-            <InfoCard label="Started At" value={formatDate(state.startedAt)} />
-            <InfoCard label="Ended At" value={formatDate(state.endedAt)} />
+      <section
+        className={`rounded-lg border p-4 font-body text-sm shadow-sm ${
+          config.watchdogConfigured
+            ? "border-green-100 bg-green-50 text-green-800"
+            : "border-yellow-200 bg-yellow-50 text-yellow-800"
+        }`}
+      >
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-bold">{autoEndStatus}</p>
+            <p className="mt-1">
+              {config.watchdogConfigured
+                ? "Server tetap bisa auto-end walaupun dashboard ditutup."
+                : "Pasang monitor eksternal agar server bisa auto-end saat dashboard ditutup."}
+            </p>
           </div>
-          {state.lastError && (
-            <div className="bg-red-50 border border-red-100 text-red-700 rounded-lg p-4 font-body text-sm">
-              <p className="font-bold mb-1">Last error</p>
-              <p>{state.lastError}</p>
+          <p className="text-xs opacity-80">
+            Last monitor check: {formatDate(state.lastWatchdogAt)}
+          </p>
+        </div>
+      </section>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
+        <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700">
+              {isTransient ? <FiRefreshCw className="animate-spin" /> : <FiInfo />}
             </div>
-          )}
+            <div>
+              <h2 className="font-heading text-xl font-bold text-gray-900">
+                {getProgressLabel(state.status)}
+              </h2>
+              <p className="mt-1 font-body text-sm text-gray-600">
+                {state.status === "running"
+                  ? "Server aktif. Pastikan End Broadcast ditekan setelah siaran selesai."
+                  : state.status === "idle"
+                    ? "Belum ada server siaran aktif."
+                    : "Sistem akan lanjut otomatis selama halaman ini terbuka."}
+              </p>
+            </div>
+          </div>
         </section>
 
         <aside className="space-y-4">
-          <section className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
-            <h2 className="font-heading font-bold text-xl text-gray-900">
-              Actions
+          <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+            <h2 className="font-heading text-xl font-bold text-gray-900">
+              Aksi
             </h2>
-            <p className="text-sm text-gray-500 font-body mt-1">
-              {getActionHelpText(state.status)}
-            </p>
-            <div className="grid grid-cols-1 gap-2 mt-4">
+            <div className="mt-4 grid grid-cols-1 gap-2">
               {availableActions.map((actionId) => {
                 const action = ACTIONS[actionId];
                 const Icon = action.icon;
-                const disabledReason = getActionDisabledReason(
-                  actionId,
-                  state,
-                  config,
-                );
+                const disabledReason = getActionDisabledReason(actionId);
                 return (
                   <div key={actionId}>
                     <button
@@ -734,13 +505,13 @@ export default function BroadcastServerPage() {
                         Boolean(disabledReason)
                       }
                       onClick={() => openConfirm(actionId)}
-                      className={`w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-md font-body font-semibold disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${action.className}`}
+                      className={`inline-flex w-full items-center justify-center gap-2 rounded-md px-4 py-3 font-body font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${action.className}`}
                     >
                       <Icon />
                       {runningAction === actionId ? "Sending..." : action.label}
                     </button>
                     {disabledReason && (
-                      <p className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-100 rounded-md p-2 mt-2 font-body">
+                      <p className="mt-2 rounded-md border border-yellow-100 bg-yellow-50 p-2 font-body text-xs text-yellow-700">
                         {disabledReason}
                       </p>
                     )}
@@ -748,102 +519,66 @@ export default function BroadcastServerPage() {
                 );
               })}
               {availableActions.length === 0 && (
-                <div className="text-sm text-blue-700 font-body bg-blue-50 border border-blue-100 rounded-md p-3">
-                  Proses sedang berjalan. Tetap buka halaman ini; sistem akan
-                  refresh otomatis sampai action berikutnya tersedia.
+                <div className="rounded-md border border-blue-100 bg-blue-50 p-3 font-body text-sm text-blue-700">
+                  Proses sedang berjalan. Tunggu sampai aksi berikutnya muncul.
                 </div>
               )}
             </div>
           </section>
-
-          <section className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
-            <h2 className="font-heading font-bold text-xl text-gray-900">
-              Server Provider Config
-            </h2>
-            <div className="space-y-3 mt-4 text-sm font-body">
-                <div className="flex justify-between gap-3">
-                  <span className="text-gray-500">Server type</span>
-                  <span className="font-semibold text-gray-900 text-right">
-                    {config.serverType || "-"}
-                    {config.serverTypeFallbacks?.length > 0 && (
-                      <span className="block text-xs text-gray-400 font-normal">
-                        fallback: {config.serverTypeFallbacks.join(", ")}
-                      </span>
-                    )}
-                  </span>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <span className="text-gray-500">Location</span>
-                  <span className="font-semibold text-gray-900 text-right">
-                    {config.location || "-"}
-                    {config.locationFallbacks?.length > 0 && (
-                      <span className="block text-xs text-gray-400 font-normal">
-                        fallback: {config.locationFallbacks.join(", ")}
-                      </span>
-                    )}
-                  </span>
-                </div>
-              <div className="flex justify-between gap-3">
-                <span className="text-gray-500">SSH keys</span>
-                <span className="font-semibold text-gray-900">
-                  {config.hasSshKeys ? "configured" : "-"}
-                </span>
-              </div>
-              <div className="flex justify-between gap-3">
-                <span className="text-gray-500">DNS</span>
-                <span className="font-semibold text-gray-900">external</span>
-              </div>
-                <div className="flex justify-between gap-3">
-                  <span className="text-gray-500">Auto end after</span>
-                <span className="font-semibold text-gray-900">
-                  {config.maxRuntimeMinutes
-                    ? `${config.maxRuntimeMinutes} min`
-                    : "-"}
-                  </span>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <span className="text-gray-500">Min before end</span>
-                  <span className="font-semibold text-gray-900">
-                    {config.minRuntimeMinutes
-                      ? `${config.minRuntimeMinutes} min`
-                      : "-"}
-                  </span>
-                </div>
-              </div>
-            </section>
         </aside>
       </div>
 
+      <details className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+        <summary className="cursor-pointer font-heading text-lg font-bold text-gray-900">
+          Advanced Details
+        </summary>
+        <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
+          <InfoCard label="Raw Status" value={state.status} />
+          <InfoCard label="Raw Phase" value={state.phase} />
+          <InfoCard label="Active Server ID" value={state.activeServerId} />
+          <InfoCard label="Server Name" value={state.serverName} />
+          <InfoCard label="Latest Snapshot ID" value={state.latestSnapshotId} />
+          <InfoCard label="Pending Snapshot ID" value={state.pendingSnapshotId} />
+          <InfoCard label="Started At" value={formatDate(state.startedAt)} />
+          <InfoCard label="Ended At" value={formatDate(state.endedAt)} />
+          <InfoCard label="Auto End Started At" value={formatDate(state.autoEndStartedAt)} />
+          <InfoCard label="Last Watchdog At" value={formatDate(state.lastWatchdogAt)} />
+          <InfoCard label="Last Watchdog Action" value={state.lastWatchdogAction} />
+          <InfoCard label="Server Type" value={config.serverType} />
+          <InfoCard label="Location" value={config.location} />
+        </div>
+      </details>
+
       {selectedAction && (
-        <div className="fixed inset-0 bg-black/30 z-[80] flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl border border-gray-200 max-w-md w-full p-6">
-            <h2 className="font-heading font-bold text-xl text-gray-900">
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/30 p-4">
+          <div className="w-full max-w-md rounded-xl border border-gray-200 bg-white p-6 shadow-xl">
+            <h2 className="font-heading text-xl font-bold text-gray-900">
               Confirm {selectedAction.label}
             </h2>
-              <p className="font-body text-sm text-gray-600 mt-2">
-                Type{" "}
-                <span className="font-bold text-gray-900">
-                  {selectedAction.confirm}
+            <p className="mt-2 font-body text-sm text-gray-600">
+              Type{" "}
+              <span className="font-bold text-gray-900">
+                {selectedAction.confirm}
               </span>{" "}
-                to continue.
+              to continue.
+            </p>
+            {confirmAction === "extend" && (
+              <p className="mt-3 rounded-md border border-blue-100 bg-blue-50 p-3 font-body text-xs text-blue-700">
+                This will add {config.extendMinutes || 60} minutes to the
+                current auto-end deadline.
               </p>
-              {confirmAction === "extend" && (
-                <p className="font-body text-xs text-blue-700 bg-blue-50 border border-blue-100 rounded-md p-3 mt-3">
-                  This will add {config.extendMinutes || 60} minutes to the
-                  current auto-end deadline.
-                </p>
-              )}
+            )}
             <input
               value={confirmText}
-              onChange={(e) => setConfirmText(e.target.value.toUpperCase())}
-              className="w-full border border-gray-300 p-3 rounded-md font-body text-gray-900 bg-white focus:ring-2 focus:ring-red-500 focus:border-red-500 mt-4"
+              onChange={(event) => setConfirmText(event.target.value.toUpperCase())}
+              className="mt-4 w-full rounded-md border border-gray-300 bg-white p-3 font-body text-gray-900 focus:border-red-500 focus:ring-2 focus:ring-red-500"
               autoFocus
             />
-            <div className="flex justify-end gap-2 mt-5">
+            <div className="mt-5 flex justify-end gap-2">
               <button
                 type="button"
                 onClick={closeConfirm}
-                className="px-4 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 font-body font-semibold cursor-pointer"
+                className="rounded-md border border-gray-300 px-4 py-2 font-body font-semibold text-gray-700 hover:bg-gray-50"
               >
                 Cancel
               </button>
@@ -851,7 +586,7 @@ export default function BroadcastServerPage() {
                 type="button"
                 disabled={confirmText !== selectedAction.confirm}
                 onClick={runAction}
-                className={`px-4 py-2 rounded-md font-body font-semibold disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${selectedAction.className}`}
+                className={`rounded-md px-4 py-2 font-body font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${selectedAction.className}`}
               >
                 {selectedAction.label}
               </button>

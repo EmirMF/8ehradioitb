@@ -398,6 +398,9 @@ model BroadcastServerState {
   startedAt          DateTime?
   endedAt            DateTime?
   autoEndAt          DateTime?
+  autoEndStartedAt   DateTime?
+  lastWatchdogAt     DateTime?
+  lastWatchdogAction String?
   sourcePasswordRotatedAt DateTime?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt

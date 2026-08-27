@@ -1,11 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import {
   FiAlertTriangle,
-  FiActivity,
-  FiClock,
   FiCopy,
   FiEye,
   FiEyeOff,
@@ -50,58 +49,44 @@ const ACTIONS = [
 ];
 
 function statusTone(status) {
-  const normalized = String(status || "").toLowerCase();
-  if (["running", "true", "online", "on", "1"].includes(normalized)) {
-    return "bg-green-100 text-green-700 border-green-200";
-  }
-  if (["stopped", "false", "offline", "off", "0"].includes(normalized)) {
-    return "bg-red-100 text-red-700 border-red-200";
-  }
-  return "bg-yellow-100 text-yellow-700 border-yellow-200";
+  if (status === "online") return "bg-green-50 text-green-800 border-green-200";
+  if (status === "offline") return "bg-red-50 text-red-800 border-red-200";
+  return "bg-yellow-50 text-yellow-800 border-yellow-200";
 }
 
 function statusDotTone(status) {
+  if (status === "online") return "bg-green-500";
+  if (status === "offline") return "bg-red-500";
+  return "bg-yellow-500";
+}
+
+function normalizeStreamStatus(status) {
   const normalized = String(status || "").toLowerCase();
   if (["running", "true", "online", "on", "1"].includes(normalized)) {
-    return "bg-green-500";
+    return "online";
   }
   if (["stopped", "false", "offline", "off", "0"].includes(normalized)) {
-    return "bg-red-500";
+    return "offline";
   }
-  return "bg-yellow-500";
+  return "checking";
 }
 
 function Panel({ children, className = "" }) {
   return (
-    <div
-      className={`bg-white rounded-lg border border-gray-200 shadow-sm ${className}`}
+    <section
+      className={`rounded-lg border border-gray-200 bg-white shadow-sm ${className}`}
     >
       {children}
-    </div>
+    </section>
   );
 }
 
-function StatCard({ label, value, description, icon: Icon }) {
-  return (
-    <Panel className="p-5">
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-sm font-semibold text-gray-500 font-body">{label}</p>
-        {Icon && (
-          <span className="w-9 h-9 rounded-md bg-blue-50 text-blue-600 flex items-center justify-center">
-            <Icon size={18} />
-          </span>
-        )}
-      </div>
-      <p className="text-4xl font-heading font-bold text-gray-900 mt-1">
-        {value ?? "-"}
-      </p>
-      {description && (
-        <p className="text-xs text-gray-500 font-body mt-2 leading-relaxed">
-          {description}
-        </p>
-      )}
-    </Panel>
-  );
+function toDatetimeLocalValue(date) {
+  const pad = (value) => String(value).padStart(2, "0");
+  const local = new Date(date);
+  return `${local.getFullYear()}-${pad(local.getMonth() + 1)}-${pad(
+    local.getDate(),
+  )}T${pad(local.getHours())}:${pad(local.getMinutes())}`;
 }
 
 function parseRangeDate(value) {
@@ -134,10 +119,9 @@ function ListenerChart({ data, range }) {
 
   if (points.length < 2) {
     return (
-      <Panel className="p-6 text-sm text-gray-500 font-body">
-        Belum cukup data untuk grafik. Refresh status beberapa kali atau tunggu
-        snapshot terkumpul.
-      </Panel>
+      <div className="rounded-lg border border-gray-100 bg-gray-50 p-6 font-body text-sm text-gray-500">
+        Belum cukup data untuk grafik. Coba refresh lagi setelah beberapa menit.
+      </div>
     );
   }
 
@@ -157,131 +141,118 @@ function ListenerChart({ data, range }) {
     .join(" ");
 
   return (
-    <Panel className="p-6">
-      <div className="flex items-center justify-between gap-3 mb-4">
-        <div>
-          <h3 className="font-heading font-bold text-lg text-gray-900">
-            Listener Trend
-          </h3>
-          <p className="text-xs text-gray-500 font-body">
-            {points.length} snapshots in the selected range.
-          </p>
-        </div>
-        <p className="text-xs text-gray-400 font-body">Max: {maxValue}</p>
-      </div>
-      <div className="w-full overflow-x-auto">
-        <svg
-          viewBox={`0 0 ${width} ${height}`}
-          className="w-full min-w-[520px] h-auto"
-          role="img"
-          aria-label="Listener trend chart"
-        >
-          <line
-            x1={padding}
-            y1={height - padding}
-            x2={width - padding}
-            y2={height - padding}
-            stroke="#e5e7eb"
-            strokeWidth="1"
-          />
-          <line
-            x1={padding}
-            y1={padding}
-            x2={padding}
-            y2={height - padding}
-            stroke="#e5e7eb"
-            strokeWidth="1"
-          />
-          {[0, 0.5, 1].map((tick) => {
-            const y = padding + (1 - tick) * plotHeight;
-            return (
-              <g key={tick}>
-                <line
-                  x1={padding}
-                  y1={y}
-                  x2={width - padding}
-                  y2={y}
-                  stroke="#f3f4f6"
-                  strokeWidth="1"
-                />
-                <text
-                  x={padding - 8}
-                  y={y + 4}
-                  textAnchor="end"
-                  className="fill-gray-400 text-[10px]"
-                >
-                  {Math.round(maxValue * tick)}
-                </text>
-              </g>
-            );
-          })}
-          <path d={path} fill="none" stroke="#2563eb" strokeWidth="3" />
-          {coords.map((point, index) => (
-            <g key={`${point.date.toISOString()}-${index}`}>
-              <circle
-                cx={point.x}
-                cy={point.y}
-                r="8"
-                fill="transparent"
-                className="cursor-pointer"
-                onMouseEnter={() => setHoveredPoint(point)}
-                onMouseLeave={() => setHoveredPoint(null)}
-                onFocus={() => setHoveredPoint(point)}
-                onBlur={() => setHoveredPoint(null)}
-                tabIndex={0}
-              />
-              <circle cx={point.x} cy={point.y} r="3" fill="#2563eb" />
-            </g>
-          ))}
-          {hoveredPoint && (
-            <g pointerEvents="none">
+    <div className="w-full overflow-x-auto">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className="h-auto w-full min-w-[520px]"
+        role="img"
+        aria-label="Listener chart"
+      >
+        {[0, 0.5, 1].map((tick) => {
+          const y = padding + (1 - tick) * plotHeight;
+          return (
+            <g key={tick}>
               <line
-                x1={hoveredPoint.x}
-                y1={padding}
-                x2={hoveredPoint.x}
-                y2={height - padding}
-                stroke="#93c5fd"
-                strokeDasharray="4 4"
-              />
-              <rect
-                x={Math.min(hoveredPoint.x + 10, width - 210)}
-                y={Math.max(hoveredPoint.y - 58, 8)}
-                width="200"
-                height="48"
-                rx="6"
-                fill="#111827"
+                x1={padding}
+                y1={y}
+                x2={width - padding}
+                y2={y}
+                stroke="#f3f4f6"
               />
               <text
-                x={Math.min(hoveredPoint.x + 22, width - 198)}
-                y={Math.max(hoveredPoint.y - 36, 30)}
-                className="fill-white text-[11px] font-bold"
+                x={padding - 8}
+                y={y + 4}
+                textAnchor="end"
+                className="fill-gray-400 text-[10px]"
               >
-                {hoveredPoint.value} listeners
-              </text>
-              <text
-                x={Math.min(hoveredPoint.x + 22, width - 198)}
-                y={Math.max(hoveredPoint.y - 18, 48)}
-                className="fill-gray-300 text-[10px]"
-              >
-                {hoveredPoint.date.toLocaleString()}
+                {Math.round(maxValue * tick)}
               </text>
             </g>
-          )}
-        </svg>
-      </div>
-    </Panel>
+          );
+        })}
+        <path d={path} fill="none" stroke="#2563eb" strokeWidth="3" />
+        {coords.map((point, index) => (
+          <g key={`${point.date.toISOString()}-${index}`}>
+            <circle
+              cx={point.x}
+              cy={point.y}
+              r="8"
+              fill="transparent"
+              className="cursor-pointer"
+              tabIndex={0}
+              onMouseEnter={() => setHoveredPoint(point)}
+              onMouseLeave={() => setHoveredPoint(null)}
+              onFocus={() => setHoveredPoint(point)}
+              onBlur={() => setHoveredPoint(null)}
+            />
+            <circle cx={point.x} cy={point.y} r="3" fill="#2563eb" />
+          </g>
+        ))}
+        {hoveredPoint && (
+          <g pointerEvents="none">
+            <line
+              x1={hoveredPoint.x}
+              y1={padding}
+              x2={hoveredPoint.x}
+              y2={height - padding}
+              stroke="#93c5fd"
+              strokeDasharray="4 4"
+            />
+            <rect
+              x={Math.min(hoveredPoint.x + 10, width - 210)}
+              y={Math.max(hoveredPoint.y - 58, 8)}
+              width="200"
+              height="48"
+              rx="6"
+              fill="#111827"
+            />
+            <text
+              x={Math.min(hoveredPoint.x + 22, width - 198)}
+              y={Math.max(hoveredPoint.y - 36, 30)}
+              className="fill-white text-[11px] font-bold"
+            >
+              {hoveredPoint.value} listeners
+            </text>
+            <text
+              x={Math.min(hoveredPoint.x + 22, width - 198)}
+              y={Math.max(hoveredPoint.y - 18, 48)}
+              className="fill-gray-300 text-[10px]"
+            >
+              {hoveredPoint.date.toLocaleString()}
+            </text>
+          </g>
+        )}
+      </svg>
+    </div>
   );
 }
 
-function toDatetimeLocalValue(date) {
-  const pad = (value) => String(value).padStart(2, "0");
-  const local = new Date(date);
-  return `${local.getFullYear()}-${pad(local.getMonth() + 1)}-${pad(
-    local.getDate(),
-  )}T${pad(local.getHours())}:${pad(local.getMinutes())}`;
+function CredentialRow({ label, value, onCopy }) {
+  return (
+    <div className="rounded-md border border-gray-200 p-3">
+      <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
+        {label}
+      </p>
+      <div className="mt-2 flex items-center gap-2">
+        <p className="flex-1 break-all font-body text-sm text-gray-900">
+          {value || "Not configured"}
+        </p>
+        {value && (
+          <button
+            type="button"
+            onClick={() => onCopy(value)}
+            className="rounded-md border border-gray-200 p-2 text-gray-600 hover:bg-gray-50"
+            title={`Copy ${label}`}
+          >
+            <FiCopy size={15} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
 }
 
-export default function AzuraCastDashboard() {
+export default function LiveStreamDashboard() {
   const { data: session, status: sessionStatus } = useSession();
   const [payload, setPayload] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -303,16 +274,15 @@ export default function AzuraCastDashboard() {
 
   const canManage =
     session && hasAnyRole(session.user.role, ["DEVELOPER", "TECHNIC"]);
-
   const config = payload?.config || {};
   const broadcastServer = payload?.broadcastServer || {};
   const isBroadcastServerRunning = broadcastServer?.isRunning !== false;
-  const isAzuraCastLocked = payload?.locked || !isBroadcastServerRunning;
+  const isLocked = payload?.locked || !isBroadcastServerRunning;
   const liveSource = config?.liveSource || {};
   const serviceStatus = payload?.status?.services || {};
   const listenerStats = payload?.listeners || {};
   const lastChecked = payload?.status?.checkedAt;
-  const normalizedStreamStatus = String(serviceStatus.frontend || "unknown");
+  const streamStatus = normalizeStreamStatus(serviceStatus.frontend);
 
   const selectedAction = useMemo(
     () => ACTIONS.find((action) => action.id === confirmAction),
@@ -325,7 +295,7 @@ export default function AzuraCastDashboard() {
     try {
       const res = await fetch("/api/azuracast/status", { cache: "no-store" });
       const data = await res.json();
-        if (!res.ok) {
+      if (!res.ok) {
         if (data?.config || data?.broadcastServer) {
           setPayload((prev) => ({
             ...prev,
@@ -374,10 +344,6 @@ export default function AzuraCastDashboard() {
     fetchListenerHistory(nextRange);
   };
 
-  const applyListenerRange = () => {
-    fetchListenerHistory(listenerRange);
-  };
-
   useEffect(() => {
     if (canManage) {
       fetchStatus();
@@ -386,6 +352,12 @@ export default function AzuraCastDashboard() {
     if (sessionStatus !== "loading" && !canManage) setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canManage, sessionStatus]);
+
+  const copyValue = async (value) => {
+    if (!value) return;
+    await navigator.clipboard.writeText(value);
+    setSuccess("Copied to clipboard.");
+  };
 
   const openConfirm = (action) => {
     setConfirmAction(action.id);
@@ -399,19 +371,13 @@ export default function AzuraCastDashboard() {
     setConfirmText("");
   };
 
-  const copyValue = async (value) => {
-    if (!value) return;
-    await navigator.clipboard.writeText(value);
-    setSuccess("Copied to clipboard.");
-  };
-
   const runAction = async () => {
     if (!selectedAction || confirmText !== selectedAction.confirm) return;
 
     const action = selectedAction;
-    setSavingAction(selectedAction.id);
+    setSavingAction(action.id);
     setError("");
-      setSuccess(`${selectedAction.label} action sent to the stream service.`);
+    setSuccess(`${action.label} action sent.`);
     closeConfirm();
 
     try {
@@ -433,7 +399,7 @@ export default function AzuraCastDashboard() {
       if (action.id === "rotate-password") {
         setShowSourcePassword(true);
         setSuccess(
-          "Stream password rotated. The streaming server was restarted and credentials are refreshing.",
+          "Stream password rotated. Update the encoder with the new password.",
         );
       }
       fetchStatus({ silent: true });
@@ -458,51 +424,80 @@ export default function AzuraCastDashboard() {
     );
   }
 
+  if (isLocked) {
+    return (
+      <div className="mx-auto max-w-3xl">
+        <Panel className="p-8 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-yellow-50 text-yellow-700">
+            <FiServer size={24} />
+          </div>
+          <h1 className="mt-4 font-heading text-3xl font-bold text-gray-900">
+            Server siaran belum menyala
+          </h1>
+          <p className="mx-auto mt-2 max-w-xl font-body text-sm text-gray-600">
+            Nyalakan server siaran dulu sebelum mengatur live stream atau melihat
+            listener realtime.
+          </p>
+          <div className="mt-6 flex flex-col justify-center gap-2 sm:flex-row">
+            <Link
+              href="/dashboard/broadcast-server"
+              className="inline-flex items-center justify-center rounded-md bg-gray-900 px-4 py-2 font-body font-semibold text-white hover:bg-black"
+            >
+              Buka Broadcast Control
+            </Link>
+            <button
+              type="button"
+              onClick={() => fetchStatus()}
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-gray-300 px-4 py-2 font-body font-semibold text-gray-700 hover:bg-gray-50"
+            >
+              <FiRefreshCw />
+              Refresh
+            </button>
+          </div>
+        </Panel>
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      <Panel className="p-6">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
-          <div className="flex items-start gap-4 min-w-0">
-            <div className="w-12 h-12 rounded-lg bg-blue-600 text-white flex items-center justify-center flex-shrink-0">
-              <FiServer size={22} />
+    <div className="mx-auto max-w-6xl space-y-6">
+      <Panel className={`border p-6 ${statusTone(streamStatus)}`}>
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="font-body text-sm font-bold uppercase tracking-wide opacity-70">
+              Live Stream
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <h1 className="font-heading text-3xl font-bold text-gray-900">
+                {streamStatus === "online"
+                  ? "Online"
+                  : streamStatus === "offline"
+                    ? "Offline"
+                    : "Checking"}
+              </h1>
+              <span
+                className={`inline-flex items-center gap-2 rounded-full border bg-white/70 px-3 py-1 text-xs font-bold ${statusTone(
+                  streamStatus,
+                )}`}
+              >
+                <span className={`h-2 w-2 rounded-full ${statusDotTone(streamStatus)}`} />
+                {streamStatus}
+              </span>
             </div>
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-3xl font-heading font-bold text-gray-900">
-                  Live Stream Control
-                </h1>
-                <span
-                  className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border ${statusTone(
-                    normalizedStreamStatus,
-                  )}`}
-                >
-                  <span
-                    className={`w-2 h-2 rounded-full ${statusDotTone(
-                      normalizedStreamStatus,
-                    )}`}
-                  />
-                  {normalizedStreamStatus}
-                </span>
-              </div>
-              <p className="text-gray-600 font-body mt-1">
-                Station {config?.stationId || "-"} on{" "}
-                <span className="font-semibold text-gray-800">
-                  {config?.baseUrl || "Stream service URL missing"}
-                </span>
+            <p className="mt-2 font-body text-sm text-gray-600">
+              Pantau stream, listener, dan kredensial live encoder dari sini.
+            </p>
+            {lastChecked && (
+              <p className="mt-2 font-body text-xs text-gray-500">
+                Last checked: {new Date(lastChecked).toLocaleString()}
               </p>
-              {lastChecked && (
-                <p className="text-xs text-gray-400 font-body mt-2 inline-flex items-center gap-1">
-                  <FiClock size={13} />
-                  Last checked: {new Date(lastChecked).toLocaleString()}
-                </p>
-              )}
-            </div>
+            )}
           </div>
           <button
             type="button"
             onClick={() => fetchStatus()}
             disabled={loading}
-            className="inline-flex items-center justify-center gap-2 bg-gray-900 hover:bg-black text-white px-4 py-2 rounded-md font-body font-semibold disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-gray-900 px-4 py-2 font-body font-semibold text-white hover:bg-black disabled:opacity-50"
           >
             <FiRefreshCw className={loading ? "animate-spin" : ""} />
             Refresh
@@ -511,207 +506,152 @@ export default function AzuraCastDashboard() {
       </Panel>
 
       {error && (
-        <div className="text-red-600 font-body bg-red-50 border border-red-100 p-3 rounded-md text-sm flex gap-2">
-          <FiAlertTriangle className="mt-0.5 flex-shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-        {success && (
-          <div className="text-green-700 font-body bg-green-50 border border-green-100 p-3 rounded-md text-sm">
-            {success}
-          </div>
-        )}
-
-        {isAzuraCastLocked && (
-          <div className="text-yellow-800 font-body bg-yellow-50 border border-yellow-200 p-4 rounded-md text-sm flex gap-3">
+        <section className="rounded-lg border border-red-100 bg-red-50 p-4 font-body text-sm text-red-700">
+          <div className="flex gap-2">
             <FiAlertTriangle className="mt-0.5 flex-shrink-0" />
             <div>
-              <p className="font-bold">Stream management is locked.</p>
-              <p className="mt-1">
-                Start Broadcast Control dulu sebelum melihat status realtime atau
-                mengirim Start/Stop/Restart ke stream service.
-              </p>
-              <p className="text-xs mt-2 text-yellow-700">
-                Broadcast Control: {broadcastServer?.status || "idle"}
-                {broadcastServer?.phase ? ` / ${broadcastServer.phase}` : ""}
-              </p>
+              <p className="font-bold">Live stream belum bisa dibaca.</p>
+              <details className="mt-2">
+                <summary className="cursor-pointer text-xs font-bold">
+                  Technical details
+                </summary>
+                <p className="mt-2 break-words text-xs">{error}</p>
+              </details>
             </div>
           </div>
-        )}
-
-      {!config?.isConfigured && (
-        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg p-5">
-          <h2 className="font-heading font-bold text-lg mb-2">
-            Stream service is not configured
-          </h2>
-          <p className="font-body text-sm">
-            Missing env: {(config?.missing || []).join(", ") || "unknown"}.
-          </p>
-        </div>
+        </section>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
-        <section className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <StatCard
-              label="Current Listeners"
-              value={listenerStats.current}
-              description="Listener yang sedang terhubung sekarang."
-              icon={FiHeadphones}
-            />
-            <StatCard
-              label="Unique Listeners"
-              value={listenerStats.unique}
-              description="Perkiraan listener unik dari sumber stats."
-              icon={FiActivity}
-            />
-            <StatCard
-              label="Peak / Total"
-              value={listenerStats.total}
-              description="Peak atau total listener yang dilaporkan stream."
-              icon={FiServer}
-            />
-          </div>
+      {success && (
+        <section className="rounded-lg border border-green-100 bg-green-50 p-3 font-body text-sm text-green-700">
+          {success}
+        </section>
+      )}
 
-          <section className="space-y-3">
-            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-2">
+      {!config?.isConfigured && (
+        <section className="rounded-lg border border-yellow-200 bg-yellow-50 p-5 text-yellow-800">
+          <h2 className="font-heading text-lg font-bold">
+            Konfigurasi live stream belum lengkap
+          </h2>
+          <details className="mt-2 font-body text-sm">
+            <summary className="cursor-pointer font-bold">Lihat detail</summary>
+            <p className="mt-2">
+              Missing env: {(config?.missing || []).join(", ") || "unknown"}.
+            </p>
+          </details>
+        </section>
+      )}
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
+        <section className="space-y-6">
+          <Panel className="p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <h2 className="font-heading font-bold text-xl text-gray-900">
-                  Listener Analytics
-                </h2>
-                <p className="text-sm text-gray-500 font-body">
-                  Grafik disusun dari snapshot listener yang tersimpan.
+                <p className="font-body text-sm font-bold uppercase tracking-wide text-gray-500">
+                  Listener Sekarang
+                </p>
+                <p className="mt-1 font-heading text-6xl font-bold text-gray-900">
+                  {listenerStats.current ?? "-"}
                 </p>
               </div>
-              {listenerStats?.source && (
-                <p className="text-xs text-gray-400 font-body">
-                  Source: {listenerStats.source}
-                </p>
-              )}
+              <div className="rounded-md bg-gray-50 px-4 py-3 font-body text-sm text-gray-600">
+                Peak: <span className="font-bold text-gray-900">{listenerStats.total ?? "-"}</span>
+              </div>
             </div>
-            <Panel className="p-4">
-              <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-3 items-end">
-                <div>
-                  <label className="block text-xs uppercase tracking-wide text-gray-500 font-bold mb-1">
+          </Panel>
+
+          <Panel className="p-6">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="font-heading text-xl font-bold text-gray-900">
+                  Listener Trend
+                </h2>
+                <p className="font-body text-sm text-gray-500">
+                  Default menampilkan 24 jam terakhir.
+                </p>
+              </div>
+              <details className="rounded-md border border-gray-200 bg-gray-50 p-3">
+                <summary className="cursor-pointer font-body text-sm font-bold text-gray-700">
+                  Filter waktu
+                </summary>
+                <div className="mt-3 grid grid-cols-1 gap-3">
+                  <label className="font-body text-xs font-bold uppercase tracking-wide text-gray-500">
                     From
+                    <input
+                      type="datetime-local"
+                      value={listenerRange.from}
+                      onChange={(event) =>
+                        setListenerRange((prev) => ({
+                          ...prev,
+                          from: event.target.value,
+                        }))
+                      }
+                      className="mt-1 w-full rounded-md border border-gray-300 bg-white p-2 font-body text-sm text-gray-900"
+                    />
                   </label>
-                  <input
-                    type="datetime-local"
-                    value={listenerRange.from}
-                    onChange={(e) =>
-                      setListenerRange((prev) => ({
-                        ...prev,
-                        from: e.target.value,
-                      }))
-                    }
-                    className="w-full border border-gray-300 p-2 rounded-md font-body text-sm text-gray-900 bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs uppercase tracking-wide text-gray-500 font-bold mb-1">
+                  <label className="font-body text-xs font-bold uppercase tracking-wide text-gray-500">
                     To
+                    <input
+                      type="datetime-local"
+                      value={listenerRange.to}
+                      onChange={(event) =>
+                        setListenerRange((prev) => ({
+                          ...prev,
+                          to: event.target.value,
+                        }))
+                      }
+                      className="mt-1 w-full rounded-md border border-gray-300 bg-white p-2 font-body text-sm text-gray-900"
+                    />
                   </label>
-                  <input
-                    type="datetime-local"
-                    value={listenerRange.to}
-                    onChange={(e) =>
-                      setListenerRange((prev) => ({
-                        ...prev,
-                        to: e.target.value,
-                      }))
-                    }
-                    className="w-full border border-gray-300 p-2 rounded-md font-body text-sm text-gray-900 bg-white"
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={applyListenerRange}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-body font-semibold cursor-pointer"
-                >
-                  Apply
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-2 mt-3">
-                {[
-                  ["1h", 1],
-                  ["6h", 6],
-                  ["24h", 24],
-                  ["7d", 168],
-                ].map(([label, hours]) => (
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      ["1h", 1],
+                      ["6h", 6],
+                      ["24h", 24],
+                      ["7d", 168],
+                    ].map(([label, hours]) => (
+                      <button
+                        key={label}
+                        type="button"
+                        onClick={() => setPresetRange(hours)}
+                        className="rounded-full border border-gray-200 px-3 py-1.5 font-body text-xs text-gray-600 hover:bg-white"
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                   <button
-                    key={label}
                     type="button"
-                    onClick={() => setPresetRange(hours)}
-                    className="text-xs px-3 py-1.5 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-50 font-body cursor-pointer"
+                    onClick={() => fetchListenerHistory(listenerRange)}
+                    className="rounded-md bg-blue-600 px-4 py-2 font-body font-semibold text-white hover:bg-blue-700"
                   >
-                    {label}
+                    Apply
                   </button>
-                ))}
-              </div>
-            </Panel>
+                </div>
+              </details>
+            </div>
             <ListenerChart data={listenerHistory} range={listenerRange} />
-            {listenerStats?.error && (
-              <p className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-md px-3 py-2 font-body">
-                Listener stats unavailable: {listenerStats.error}
-              </p>
-            )}
-          </section>
+          </Panel>
         </section>
 
         <aside className="space-y-6">
           <Panel className="p-5">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs uppercase tracking-wide text-gray-500 font-bold">
-                  Streaming Server
-                </p>
-                  <div
-                    className={`inline-flex mt-3 px-3 py-1 rounded-full text-sm font-bold border ${statusTone(
-                      normalizedStreamStatus,
-                  )}`}
-                >
-                  {normalizedStreamStatus}
-                </div>
-                  <p className="text-xs text-gray-500 font-body mt-3 leading-relaxed">
-                    Listener endpoint untuk audio dari live encoder.
-                  </p>
-                </div>
-                <span
-                className={`w-3 h-3 rounded-full mt-1 ${statusDotTone(
-                  normalizedStreamStatus,
-                )}`}
-              />
-            </div>
-          </Panel>
-
-          <Panel className="p-5">
-            <div className="flex items-start justify-between gap-3 mb-4">
-              <div>
-                <h2 className="font-heading font-bold text-xl text-gray-900">
-                  Station Actions
-                </h2>
-                <p className="text-sm text-gray-500 font-body">
-                  Requires typed confirmation.
-                </p>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 gap-2">
+            <h2 className="font-heading text-xl font-bold text-gray-900">
+              Stream Actions
+            </h2>
+            <div className="mt-4 grid grid-cols-1 gap-2">
               {ACTIONS.map((action) => {
                 const Icon = action.icon;
                 return (
                   <button
                     key={action.id}
                     type="button"
-                    disabled={
-                      !config?.isConfigured ||
-                      isAzuraCastLocked ||
-                      Boolean(savingAction)
-                    }
+                    disabled={!config?.isConfigured || Boolean(savingAction)}
                     onClick={() => openConfirm(action)}
-                    className={`inline-flex items-center justify-center gap-2 px-4 py-3 rounded-md font-body font-semibold disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${action.buttonClass}`}
+                    className={`inline-flex items-center justify-center gap-2 rounded-md px-4 py-3 font-body font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${action.buttonClass}`}
                   >
                     <Icon />
-                    {action.label}
+                    {savingAction === action.id ? "Sending..." : action.label}
                   </button>
                 );
               })}
@@ -719,167 +659,123 @@ export default function AzuraCastDashboard() {
           </Panel>
 
           <Panel className="p-5">
-            <details open>
-              <summary className="cursor-pointer list-none">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h2 className="font-heading font-bold text-xl text-gray-900">
-                      Live Encoder Source
-                    </h2>
-                      <p className="text-sm text-gray-500 font-body">
-                        Connection credentials for live broadcast.
-                      </p>
-                    </div>
-                  {!liveSource?.isConfigured && (
-                    <span className="text-xs text-yellow-800 bg-yellow-50 border border-yellow-200 rounded-md px-2 py-1 font-body">
-                      Missing
-                    </span>
-                  )}
-                </div>
-              </summary>
-              {config?.liveSourceError && (
-                <p className="text-xs text-yellow-700 font-body mt-3">
-                  Could not read live source details from the stream service,
-                  showing env fallback only.
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="font-heading text-xl font-bold text-gray-900">
+                  Live Encoder
+                </h2>
+                <p className="mt-1 font-body text-sm text-gray-500">
+                  Pakai data ini di aplikasi encoder.
                 </p>
-              )}
+              </div>
               {!liveSource?.isConfigured && (
-                <p className="text-xs text-yellow-800 bg-yellow-50 border border-yellow-200 rounded-md px-3 py-2 font-body mt-3">
-                  Missing: {(liveSource?.missing || []).join(", ") || "unknown"}
-                </p>
+                <span className="rounded-md border border-yellow-200 bg-yellow-50 px-2 py-1 font-body text-xs text-yellow-800">
+                  Missing
+                </span>
               )}
-              <div className="space-y-3 mt-4">
-                {[
-                  ["Host", liveSource?.host, liveSource?.source?.host],
-                  ["Port", liveSource?.port, liveSource?.source?.port],
-                  [
-                    "Username",
-                    liveSource?.username,
-                    liveSource?.source?.username,
-                  ],
-                  ["Mount", liveSource?.mount, liveSource?.source?.mount],
-                ].map(([label, value, source]) => (
-                  <div
-                    key={label}
-                    className="border border-gray-200 rounded-md p-3"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs uppercase tracking-wide text-gray-500 font-bold">
-                        {label}
-                      </p>
-                      {source && (
-                        <span className="text-[11px] text-gray-400 font-body">
-                          {source}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <p className="font-body text-sm text-gray-900 break-all flex-1">
-                        {value || "Not configured"}
-                      </p>
-                      {value && (
-                        <button
-                          type="button"
-                          onClick={() => copyValue(value)}
-                          className="p-2 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 cursor-pointer"
-                          title={`Copy ${label}`}
-                        >
-                          <FiCopy size={15} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-
-                <div className="border border-gray-200 rounded-md p-3">
-                  <p className="text-xs uppercase tracking-wide text-gray-500 font-bold">
-                    Password
+            </div>
+            <div className="mt-4 space-y-3">
+              <CredentialRow label="Host" value={liveSource?.host} onCopy={copyValue} />
+              <CredentialRow label="Port" value={liveSource?.port} onCopy={copyValue} />
+              <CredentialRow
+                label="Username"
+                value={liveSource?.username}
+                onCopy={copyValue}
+              />
+              <CredentialRow label="Mount" value={liveSource?.mount} onCopy={copyValue} />
+              <div className="rounded-md border border-gray-200 p-3">
+                <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
+                  Password
+                </p>
+                <div className="mt-2 flex items-center gap-2">
+                  <p className="flex-1 break-all font-body text-sm text-gray-900">
+                    {liveSource?.password
+                      ? showSourcePassword
+                        ? liveSource.password
+                        : "************"
+                      : "Not configured"}
                   </p>
-                  {liveSource?.source?.password && (
-                    <p className="text-[11px] text-gray-400 font-body mt-1">
-                      Source: {liveSource.source.password}
-                    </p>
+                  {liveSource?.password && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setShowSourcePassword((value) => !value)}
+                        className="rounded-md border border-gray-200 p-2 text-gray-600 hover:bg-gray-50"
+                        title={
+                          showSourcePassword ? "Hide password" : "Show password"
+                        }
+                      >
+                        {showSourcePassword ? (
+                          <FiEyeOff size={15} />
+                        ) : (
+                          <FiEye size={15} />
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => copyValue(liveSource.password)}
+                        className="rounded-md border border-gray-200 p-2 text-gray-600 hover:bg-gray-50"
+                        title="Copy password"
+                      >
+                        <FiCopy size={15} />
+                      </button>
+                    </>
                   )}
-                  <div className="flex items-center gap-2 mt-2">
-                    <p className="font-body text-sm text-gray-900 break-all flex-1">
-                      {liveSource?.password
-                        ? showSourcePassword
-                          ? liveSource.password
-                          : "************"
-                        : "Not configured"}
-                    </p>
-                    {liveSource?.password && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setShowSourcePassword((value) => !value)
-                          }
-                          className="p-2 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 cursor-pointer"
-                          title={
-                            showSourcePassword
-                              ? "Hide password"
-                              : "Show password"
-                          }
-                        >
-                          {showSourcePassword ? (
-                            <FiEyeOff size={15} />
-                          ) : (
-                            <FiEye size={15} />
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => copyValue(liveSource.password)}
-                          className="p-2 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 cursor-pointer"
-                          title="Copy password"
-                        >
-                          <FiCopy size={15} />
-                        </button>
-                      </>
-                    )}
-                  </div>
                 </div>
               </div>
-            </details>
+            </div>
           </Panel>
         </aside>
       </div>
 
+      <details className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+        <summary className="cursor-pointer font-heading text-lg font-bold text-gray-900">
+          Advanced Details
+        </summary>
+        <div className="mt-4 grid grid-cols-1 gap-3 font-body text-sm md:grid-cols-2">
+          <CredentialRow label="Raw Stream Status" value={serviceStatus.frontend} onCopy={copyValue} />
+          <CredentialRow label="Station ID" value={config?.stationId} onCopy={copyValue} />
+          <CredentialRow label="Service URL" value={config?.baseUrl} onCopy={copyValue} />
+          <CredentialRow label="Broadcast Status" value={broadcastServer?.status} onCopy={copyValue} />
+          <CredentialRow label="Broadcast Phase" value={broadcastServer?.phase} onCopy={copyValue} />
+          <CredentialRow
+            label="Last Checked"
+            value={lastChecked ? new Date(lastChecked).toLocaleString() : ""}
+            onCopy={copyValue}
+          />
+        </div>
+      </details>
+
       {selectedAction && (
-        <div className="fixed inset-0 bg-black/30 z-[80] flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl border border-gray-200 max-w-md w-full p-6">
-            <h2 className="font-heading font-bold text-xl text-gray-900">
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/30 p-4">
+          <div className="w-full max-w-md rounded-xl border border-gray-200 bg-white p-6 shadow-xl">
+            <h2 className="font-heading text-xl font-bold text-gray-900">
               Confirm {selectedAction.label}
             </h2>
-              <p className="font-body text-sm text-gray-600 mt-2">
-                Type{" "}
+            <p className="mt-2 font-body text-sm text-gray-600">
+              Type{" "}
               <span className="font-bold text-gray-900">
                 {selectedAction.confirm}
               </span>{" "}
-              to send this action to stream station{" "}
-              <span className="font-bold text-gray-900">
-                {config?.stationId || "unknown"}
-              </span>
-                .
+              to continue.
+            </p>
+            {selectedAction.id === "rotate-password" && (
+              <p className="mt-3 rounded-md border border-blue-100 bg-blue-50 p-3 font-body text-xs text-blue-700">
+                This will generate a new live encoder password. Update the
+                encoder after this action finishes.
               </p>
-              {selectedAction.id === "rotate-password" && (
-                <p className="font-body text-xs text-blue-700 bg-blue-50 border border-blue-100 rounded-md p-3 mt-3">
-                  This will generate a new live encoder source password and restart
-                  the streaming server. Update the encoder after this action finishes.
-                </p>
-              )}
-              <input
+            )}
+            <input
               value={confirmText}
-              onChange={(e) => setConfirmText(e.target.value.toUpperCase())}
-              className="w-full border border-gray-300 p-3 rounded-md font-body text-gray-900 bg-white focus:ring-2 focus:ring-red-500 focus:border-red-500 mt-4"
+              onChange={(event) => setConfirmText(event.target.value.toUpperCase())}
+              className="mt-4 w-full rounded-md border border-gray-300 bg-white p-3 font-body text-gray-900 focus:border-red-500 focus:ring-2 focus:ring-red-500"
               autoFocus
             />
-            <div className="flex justify-end gap-2 mt-5">
+            <div className="mt-5 flex justify-end gap-2">
               <button
                 type="button"
                 onClick={closeConfirm}
-                className="px-4 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 font-body font-semibold cursor-pointer"
+                className="rounded-md border border-gray-300 px-4 py-2 font-body font-semibold text-gray-700 hover:bg-gray-50"
               >
                 Cancel
               </button>
@@ -890,7 +786,7 @@ export default function AzuraCastDashboard() {
                   savingAction === selectedAction.id
                 }
                 onClick={runAction}
-                className={`px-4 py-2 rounded-md font-body font-semibold disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${selectedAction.buttonClass}`}
+                className={`rounded-md px-4 py-2 font-body font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${selectedAction.buttonClass}`}
               >
                 {savingAction === selectedAction.id
                   ? "Sending..."
