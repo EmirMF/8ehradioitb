@@ -67,7 +67,6 @@ export default function Navbar() {
               width={20}
               height={20}
               style={{ position: "relative", top: "0.5px" }}
-              priority
             />
           </div>
           Programs
@@ -85,7 +84,6 @@ export default function Navbar() {
               width={18}
               height={18}
               style={{ position: "relative", top: "1px" }}
-              priority
             />
           </div>
           About Us
@@ -103,7 +101,6 @@ export default function Navbar() {
               width={22}
               height={22}
               style={{ position: "relative", top: "1px" }}
-              priority
             />
           </div>
           FAQ
@@ -126,7 +123,6 @@ export default function Navbar() {
               width={22}
               height={22}
               style={{ position: "relative", top: "1px" }}
-              priority
             />
           </div>
           Media Partner
@@ -144,7 +140,6 @@ export default function Navbar() {
               width={22}
               height={22}
               style={{ position: "relative", top: "1px" }}
-              priority
             />
           </div>
           Agency
