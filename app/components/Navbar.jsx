@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import NavbarAudio from "./navbar/NavbarAudio";
 import NavbarMobile from "./navbar/NavbarMobile";
@@ -54,7 +55,7 @@ export default function Navbar() {
 
   const discoverLinks = (
     <>
-      <a
+      <Link
         href="/programs"
         className="block px-4 py-2 text-gray-700 hover:bg-gray-100 font-body text-base"
       >
@@ -71,8 +72,8 @@ export default function Navbar() {
           </div>
           Programs
         </div>
-      </a>
-      <a
+      </Link>
+      <Link
         href="/about-us"
         className="block px-4 py-2 text-gray-700 hover:bg-gray-100 font-body text-base"
       >
@@ -89,8 +90,8 @@ export default function Navbar() {
           </div>
           About Us
         </div>
-      </a>
-      <a
+      </Link>
+      <Link
         href="/faq"
         className="block px-4 py-2 text-gray-700 hover:bg-gray-100 font-body text-base"
       >
@@ -107,13 +108,13 @@ export default function Navbar() {
           </div>
           FAQ
         </div>
-      </a>
+      </Link>
     </>
   );
 
   const partnershipLinks = (
     <>
-      <a
+      <Link
         href="/media-partner"
         className="block px-4 py-2 text-gray-700 hover:bg-gray-100 font-body text-base"
       >
@@ -130,8 +131,8 @@ export default function Navbar() {
           </div>
           Media Partner
         </div>
-      </a>
-      <a
+      </Link>
+      <Link
         href="/agency"
         className="block px-4 py-2 text-gray-700 hover:bg-gray-100 font-body text-base"
       >
@@ -148,7 +149,7 @@ export default function Navbar() {
           </div>
           Agency
         </div>
-      </a>
+      </Link>
     </>
   );
 

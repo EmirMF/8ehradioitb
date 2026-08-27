@@ -38,67 +38,67 @@ function ShortLinkCard({ shortLink, onEdit, onDelete, onViewAnalytics, onViewQR 
     };
 
     return (
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-            <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
+        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+            <div className="flex items-start justify-between gap-2 mb-4">
+                <div className="flex-1 min-w-0">
                     <h3 className="font-heading font-semibold text-gray-900 mb-2">
                         {shortLink.title || 'Untitled Link'}
                     </h3>
                     <p className="text-sm text-gray-600 font-body mb-3 break-all">{shortLink.destination}</p>
-                    <div className="flex items-center space-x-2">
-                        <span className="text-sm font-medium text-blue-600 font-body">8eh.link/{shortLink.slug}</span>
+                    <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-sm font-medium text-blue-600 font-body break-all">8eh.link/{shortLink.slug}</span>
                         <button
                             onClick={copyToClipboard}
-                            className="text-gray-400 hover:text-gray-600 transition-colors p-1"
+                            className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors p-1"
                         >
                             <FiCopy size={16} />
                         </button>
-                        {copied && <span className="text-xs text-green-600 font-body">Copied!</span>}
+                        {copied && <span className="flex-shrink-0 text-xs text-green-600 font-body">Copied!</span>}
                     </div>
                 </div>
-                <div className="flex items-center space-x-1">
+                <div className="flex-shrink-0 flex items-center gap-0.5">
                     <button
                         onClick={() => onViewAnalytics(shortLink)}
-                        className="p-2 text-gray-400 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50"
+                        className="p-1.5 sm:p-2 text-gray-400 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50"
                         title="View Analytics"
                     >
-                        <FiBarChart2 size={18} />
+                        <FiBarChart2 size={16} />
                     </button>
                     <button
                         onClick={() => onViewQR(shortLink)}
-                        className="p-2 text-gray-400 hover:text-purple-600 transition-colors rounded-lg hover:bg-purple-50"
+                        className="p-1.5 sm:p-2 text-gray-400 hover:text-purple-600 transition-colors rounded-lg hover:bg-purple-50"
                         title="QR Code"
                     >
-                        <BsQrCode size={18} />
+                        <BsQrCode size={16} />
                     </button>
                     <button
                         onClick={() => onEdit(shortLink)}
-                        className="p-2 text-gray-400 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50"
+                        className="p-1.5 sm:p-2 text-gray-400 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50"
                         title="Edit"
                     >
-                        <FiEdit size={18} />
+                        <FiEdit size={16} />
                     </button>
                     <button
                         onClick={() => onDelete(shortLink.id)}
-                        className="p-2 text-gray-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-50"
+                        className="p-1.5 sm:p-2 text-gray-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-50"
                         title="Delete"
                     >
-                        <FiTrash2 size={18} />
+                        <FiTrash2 size={16} />
                     </button>
                 </div>
             </div>
-            <div className="flex items-center justify-between text-sm text-gray-500 font-body">
-                <div className="flex items-center space-x-4">
-                    <span className="flex items-center space-x-1">
+            <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 text-sm text-gray-500 font-body">
+                <div className="flex items-center gap-3">
+                    <span className="flex items-center gap-1">
                         <FiEye size={14} />
                         <span>{shortLink._count?.clicks || 0} clicks</span>
                     </span>
-                    <span className="flex items-center space-x-1">
+                    <span className="flex items-center gap-1">
                         <FiCalendar size={14} />
                         <span>{new Date(shortLink.createdAt).toLocaleDateString()}</span>
                     </span>
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center gap-2 flex-wrap">
                     {shortLink.password && (
                         <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-body flex items-center gap-1">
                             <FiLock size={12} />

@@ -54,6 +54,21 @@ body {
     animation: marquee-infinite 20s linear infinite;
   }
 
+  @keyframes player-title-marquee {
+    0%,
+    15% {
+      transform: translateX(0);
+    }
+    85%,
+    100% {
+      transform: translateX(calc(-100% + var(--player-title-width, 15rem)));
+    }
+  }
+
+  .animate-player-title-marquee {
+    animation: player-title-marquee 14s linear infinite;
+  }
+
   /* Smooth spinner */
   @keyframes spinner-rotate {
     from {
@@ -131,3 +146,25 @@ body {
 
 @tailwind base;
 @tailwind components;
+
+/* Restore list styles stripped by Tailwind preflight inside the MD editor preview */
+.wmde-markdown ol {
+  list-style-type: decimal;
+  padding-left: 2em;
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+.wmde-markdown ul {
+  list-style-type: disc;
+  padding-left: 2em;
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+.wmde-markdown ol ol,
+.wmde-markdown ul ul,
+.wmde-markdown ol ul {
+  margin-top: 0;
+  margin-bottom: 0;
+}

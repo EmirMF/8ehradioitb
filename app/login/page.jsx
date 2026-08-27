@@ -52,7 +52,7 @@ export default function LoginPage() {
             objectFit="contain"
           />
           <h2 className="font-heading text-4xl font-bold italic text-[#E36F6F] mt-4">
-            #Meresonansi&Berkarya
+            #MembentangBingkai
           </h2>
         </div> */}
 

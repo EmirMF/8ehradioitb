@@ -332,6 +332,80 @@ model TuneTrackerMeta {
   updatedAt   DateTime @updatedAt
 }
 
+model NowPlayingPlaylist {
+  id        String                   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  isActive  Boolean                  @default(true)
+  createdAt DateTime                 @default(now())
+  updatedAt DateTime                 @updatedAt
+  items     NowPlayingPlaylistItem[]
+}
+
+model NowPlayingPlaylistItem {
+  id         String             @id @default(auto()) @map("_id") @db.ObjectId
+  playlistId String             @db.ObjectId
+  playlist   NowPlayingPlaylist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  title      String
+  artist     String
+  coverImage String?
+  order      Int
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+}
+
+model NowPlayingState {
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  key        String    @unique @default("main")
+  source     String    @default("manual-playlist")
+  playlistId String?   @db.ObjectId
+  itemId     String?   @db.ObjectId
+  title      String?
+  artist     String?
+  coverImage String?
+  isActive   Boolean   @default(false)
+  startedAt  DateTime?
+  updatedBy  String?
+  updatedAt  DateTime  @updatedAt
+}
+
+model AzuraCastListenerSnapshot {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  stationId String
+  current   Int?
+  unique    Int?
+  total     Int?
+  source    String?
+  createdAt DateTime @default(now())
+
+  @@index([stationId, createdAt])
+}
+
+model BroadcastServerState {
+  id                 String    @id @default(auto()) @map("_id") @db.ObjectId
+  key                String    @unique @default("main")
+  status             String    @default("idle")
+  phase              String    @default("idle")
+  latestSnapshotId   String?
+  previousSnapshotId String?
+  pendingSnapshotId  String?
+  activeServerId     String?
+  activeServerIp     String?
+  serverName         String?
+  lastAction         String?
+  lastError          String?
+  startedBy          String?
+  endedBy            String?
+  startedAt          DateTime?
+  endedAt            DateTime?
+  autoEndAt          DateTime?
+  autoEndStartedAt   DateTime?
+  lastWatchdogAt     DateTime?
+  lastWatchdogAction String?
+  sourcePasswordRotatedAt DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
+
 model ProgramVideo {
   id           String   @id @default(cuid()) @map("_id")
   title        String

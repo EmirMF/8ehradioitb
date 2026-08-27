@@ -13,11 +13,37 @@ function isAdmin(roleString) {
   return hasAnyRole(roleString, ["DEVELOPER", "TECHNIC"]);
 }
 
+const DEFAULT_STREAM_URL =
+  "http://stream.8ehradioitb.com/listen/8eh_radio_itb/radio.mp3";
+
+function normalizeConfig(config) {
+  if (!config) {
+    return {
+      baseUrls: [DEFAULT_STREAM_URL],
+      defaultUrl: DEFAULT_STREAM_URL,
+      fallbackUrl: DEFAULT_STREAM_URL,
+      onAir: true,
+    };
+  }
+
+  const baseUrls = Array.isArray(config.baseUrls) ? config.baseUrls : [];
+  const defaultUrl = config.defaultUrl || baseUrls[0] || DEFAULT_STREAM_URL;
+  const fallbackUrl = config.fallbackUrl || defaultUrl || DEFAULT_STREAM_URL;
+
+  return {
+    ...config,
+    baseUrls: baseUrls.length > 0 ? baseUrls : [defaultUrl],
+    defaultUrl,
+    fallbackUrl,
+    onAir: typeof config.onAir === "boolean" ? config.onAir : true,
+  };
+}
+
 export async function GET() {
   const config = await prisma.streamConfig.findFirst();
   const activeBroadcast = await getActiveBroadcast();
   return NextResponse.json({
-    ...(config || {}),
+    ...normalizeConfig(config),
     // Ekspos sesi siaran aktif supaya client tahu ke broadcast mana menempel
     broadcastId: activeBroadcast?.id ?? null,
     broadcastStartedAt: activeBroadcast?.startedAt?.toISOString() ?? null,
@@ -50,7 +76,6 @@ export async function POST(req) {
   } else {
     config = await prisma.streamConfig.create({ data });
   }
-
   // Jika onAir tidak diubah, tetap kembalikan broadcast aktif (jika ada)
   if (!activeBroadcast) {
     activeBroadcast = await getActiveBroadcast();
