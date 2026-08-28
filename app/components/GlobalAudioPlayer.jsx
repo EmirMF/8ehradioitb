@@ -1,7 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
-import Image from "next/image";
-import Pusher from "pusher-js";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { FiMessageCircle, FiMusic } from "react-icons/fi";
 import ButtonPrimary from "@/app/components/ButtonPrimary";
 
@@ -9,6 +7,7 @@ import LiveChatWindow from "@/app/components/chat/LiveChatWindow";
 import ChatInputBox from "@/app/components/chat/ChatInputBox";
 import RequestLaguModal from "@/app/components/RequestLaguModal";
 import { useLiveChat } from "@/app/hooks/useLiveChat";
+import { subscribePusherChannel, unsubscribePusherChannel } from "@/app/hooks/usePusherClient";
 
 
 // Form nama inline untuk chat panel di player (harus komponen terpisah agar hooks bisa dipakai)
@@ -139,16 +138,21 @@ const GlobalAudioPlayer = () => {
   const [roomId, setRoomId] = useState(null);       // untuk cek status live
   const [chatRoomId, setChatRoomId] = useState(null); // untuk useLiveChat (diset setelah sesi valid)
   const [isLiveActive, setIsLiveActive] = useState(null); // null=loading, true/false
-  
+  const [realtimeEnabled, setRealtimeEnabled] = useState(false);
+  const showLiveChatRef = useRef(showLiveChat);
+
   useEffect(() => {
-    const pusherKey = process.env.NEXT_PUBLIC_PUSHER_KEY || '';
-    const pusherCluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'ap1';
-    if (!pusherKey) return;
+    showLiveChatRef.current = showLiveChat;
+  }, [showLiveChat]);
 
-    const pusher = new Pusher(pusherKey, { cluster: pusherCluster, forceTLS: true });
-    const channel = pusher.subscribe('live-status');
+  useEffect(() => {
+    if (!realtimeEnabled) return;
 
-    channel.bind('live-started', (data) => {
+    const subscription = subscribePusherChannel('live-status');
+    if (!subscription) return;
+    const { channel } = subscription;
+
+    const handleLiveStarted = (data) => {
       if (!data.roomId) return;
       window.dispatchEvent(new CustomEvent("onAirChanged", { detail: { onAir: true, ...data } }));
       setRoomId(data.roomId);
@@ -156,10 +160,10 @@ const GlobalAudioPlayer = () => {
         liveChatEnabled: data.liveChatEnabled !== false,
         songRequestEnabled: data.songRequestEnabled !== false,
       });
-      if (showLiveChat) setIsLiveActive(true);
-    });
+      if (showLiveChatRef.current) setIsLiveActive(true);
+    };
 
-    channel.bind('live-ended', (data) => {
+    const handleLiveEnded = (data) => {
       window.dispatchEvent(new CustomEvent("onAirChanged", { detail: { onAir: false, ...data } }));
       setFeatures({
         liveChatEnabled: data?.liveChatEnabled !== false,
@@ -170,14 +174,17 @@ const GlobalAudioPlayer = () => {
       setRoomId(null);
       setChatRoomId(null);
       setIsLiveActive(false);
-    });
+    };
+
+    channel.bind('live-started', handleLiveStarted);
+    channel.bind('live-ended', handleLiveEnded);
 
     return () => {
-      channel.unbind_all();
-      pusher.unsubscribe('live-status');
-      pusher.disconnect();
+      channel.unbind('live-started', handleLiveStarted);
+      channel.unbind('live-ended', handleLiveEnded);
+      unsubscribePusherChannel('live-status');
     };
-  }, [showLiveChat]);
+  }, [realtimeEnabled]);
 
   useEffect(() => {
     if (!features.liveChatEnabled) {
@@ -190,7 +197,10 @@ const GlobalAudioPlayer = () => {
   }, [features.liveChatEnabled, features.songRequestEnabled]);
 
   useEffect(() => {
-    const openRequest = () => setIsRequestModalOpen(true);
+    const openRequest = () => {
+      setRealtimeEnabled(true);
+      setIsRequestModalOpen(true);
+    };
     const syncGuestSession = (event) => {
       const data = event.detail || {};
       if (!data.guestName) return;
@@ -246,17 +256,16 @@ const GlobalAudioPlayer = () => {
     coverImage: "",
   });
 
+  const applyNowPlaying = useCallback((data) => {
+    setPlayerConfig({
+      title: data?.title || "",
+      subtitle: data?.artist || data?.subtitle || "",
+      coverImage: data?.coverImage || "",
+    });
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
-
-    const applyNowPlaying = (data) => {
-      if (cancelled) return;
-      setPlayerConfig({
-        title: data?.title || "",
-        subtitle: data?.artist || data?.subtitle || "",
-        coverImage: data?.coverImage || "",
-      });
-    };
 
     const fetchNowPlaying = () => {
       fetch("/api/now-playing", { cache: "no-store" })
@@ -266,7 +275,7 @@ const GlobalAudioPlayer = () => {
           return res.json();
         })
         .then((data) => {
-          if (data) applyNowPlaying(data);
+          if (data && !cancelled) applyNowPlaying(data);
         })
         .catch(() => {
           if (cancelled) return;
@@ -277,7 +286,7 @@ const GlobalAudioPlayer = () => {
               return res.json();
             })
             .then((data) => {
-              if (data) applyNowPlaying(data);
+              if (data && !cancelled) applyNowPlaying(data);
             })
             .catch(() => {
               if (!cancelled) {
@@ -290,22 +299,26 @@ const GlobalAudioPlayer = () => {
     fetchNowPlaying();
     const intervalId = window.setInterval(fetchNowPlaying, 60000);
 
-    const pusherKey = process.env.NEXT_PUBLIC_PUSHER_KEY?.trim();
-    const pusherCluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER?.trim();
-    let pusher = null;
-
-    if (pusherKey && pusherCluster) {
-      pusher = new Pusher(pusherKey, { cluster: pusherCluster });
-      const channel = pusher.subscribe("now-playing");
-      channel.bind("updated", applyNowPlaying);
-    }
-
     return () => {
       cancelled = true;
       window.clearInterval(intervalId);
-      if (pusher) pusher.disconnect();
     };
-  }, []);
+  }, [applyNowPlaying]);
+
+  useEffect(() => {
+    if (!realtimeEnabled) return;
+
+    const subscription = subscribePusherChannel("now-playing");
+    if (!subscription) return;
+    const { channel } = subscription;
+
+    channel.bind("updated", applyNowPlaying);
+
+    return () => {
+      channel.unbind("updated", applyNowPlaying);
+      unsubscribePusherChannel("now-playing");
+    };
+  }, [applyNowPlaying, realtimeEnabled]);
 
   useEffect(() => {
     fetch("/api/stream-config")
@@ -325,6 +338,7 @@ const GlobalAudioPlayer = () => {
     const playing = e.detail.isPlaying;
     setIsPlaying(playing);
     if (playing) {
+      setRealtimeEnabled(true);
       setShowPlayer(true);
       sessionStorage.setItem('ever_played', 'true'); // ← tambahkan ini
     }
@@ -361,6 +375,7 @@ const GlobalAudioPlayer = () => {
   }, [isPlaying]);
 
   const togglePlay = () => {
+    setRealtimeEnabled(true);
     if (isPlaying) {
       window.dispatchEvent(new CustomEvent("pauseRequested"));
     } else {
@@ -394,6 +409,7 @@ const GlobalAudioPlayer = () => {
   };
 
   const toggleLiveChat = async () => {
+    setRealtimeEnabled(true);
     if (!showLiveChat) {
       setIsLiveActive(null);
       // Pertama kali dibuka — fetch active room
@@ -586,7 +602,7 @@ const GlobalAudioPlayer = () => {
                 </div>
                 
                 {features.songRequestEnabled && (
-                  <button type="button" onClick={() => setIsRequestModalOpen(true)} className="md:hidden w-9 h-9 rounded-full ring-1 ring-gray-300 hover:ring-[#D83232] text-gray-700 hover:text-[#D83232] flex items-center justify-center transition-all flex-shrink-0" aria-label="Request lagu" title="Request lagu">
+                  <button type="button" onClick={() => { setRealtimeEnabled(true); setIsRequestModalOpen(true); }} className="md:hidden w-9 h-9 rounded-full ring-1 ring-gray-300 hover:ring-[#D83232] text-gray-700 hover:text-[#D83232] flex items-center justify-center transition-all flex-shrink-0" aria-label="Request lagu" title="Request lagu">
                     <FiMusic size={18} />
                   </button>
                 )}
@@ -636,7 +652,7 @@ const GlobalAudioPlayer = () => {
                 </button>
                 <input type="range" min="0" max="1" step="0.1" value={volume} onChange={handleVolumeChange} className="w-20 md:w-24 h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-800" />
                 {features.songRequestEnabled && (
-                  <button type="button" onClick={() => setIsRequestModalOpen(true)} className="w-9 h-9 rounded-full ring-1 ring-gray-300 hover:ring-[#D83232] text-gray-700 hover:text-[#D83232] flex items-center justify-center transition-all flex-shrink-0" aria-label="Request lagu" title="Request lagu">
+                  <button type="button" onClick={() => { setRealtimeEnabled(true); setIsRequestModalOpen(true); }} className="w-9 h-9 rounded-full ring-1 ring-gray-300 hover:ring-[#D83232] text-gray-700 hover:text-[#D83232] flex items-center justify-center transition-all flex-shrink-0" aria-label="Request lagu" title="Request lagu">
                     <FiMusic size={18} />
                   </button>
                 )}

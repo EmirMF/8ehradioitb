@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import Pusher from 'pusher-js';
+import { subscribePusherChannel, unsubscribePusherChannel } from './usePusherClient';
 
 export interface ChatMessage {
   id: string;
@@ -88,43 +88,32 @@ export function useLiveChat(roomId: string | null, enabled = true) {
     fetchStats();
     const statsInterval = setInterval(fetchStats, 15000);
 
-    // 3. Hubungkan ke Pusher untuk real-time events
-    const pusherKey = process.env.NEXT_PUBLIC_PUSHER_KEY || '';
-    const pusherCluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'ap1';
-
-    if (!pusherKey) {
-      console.error('Pusher key tidak ditemukan di environment variables.');
-      setConnectionError(true);
+    const channelName = `chat-room-${roomId}`;
+    const subscription = subscribePusherChannel(channelName);
+    if (!subscription) {
       return () => {
         disposed = true;
         clearInterval(statsInterval);
       };
     }
 
-    const pusher = new Pusher(pusherKey, {
-      cluster: pusherCluster,
-      forceTLS: true
-    });
+    const { pusher, channel } = subscription;
 
-    const channelName = `chat-room-${roomId}`;
-    const channel = pusher.subscribe(channelName);
-
-    pusher.connection.bind('connected', () => {
+    const handleConnected = () => {
       setIsConnected(true);
       setConnectionError(false);
-    });
+    };
 
-    pusher.connection.bind('error', () => {
+    const handleError = () => {
       setIsConnected(false);
       setConnectionError(true);
-    });
+    };
 
-    pusher.connection.bind('disconnected', () => {
+    const handleDisconnected = () => {
       setIsConnected(false);
-    });
+    };
 
-    // Event: Pesan baru masuk
-    channel.bind('new-message', (data: any) => {
+    const handleNewMessage = (data: any) => {
       setMessages((prev) => {
         if (prev.some(m => m.id === data.id)) return prev;
         return [...prev, {
@@ -135,19 +124,17 @@ export function useLiveChat(roomId: string | null, enabled = true) {
           deleted: false
         }];
       });
-    });
+    };
 
-    // Event: Pesan dihapus
-    channel.bind('message-deleted', (data: any) => {
+    const handleMessageDeleted = (data: any) => {
       setMessages((prev) => prev.map(m => 
         m.id === data.id 
           ? { ...m, text: "Pesan ini dihapus oleh moderator", deleted: true } 
           : m
       ));
-    });
+    };
 
-    // Event: User di-mute atau unmute
-    channel.bind('guest-muted', (data: any) => {
+    const handleGuestMuted = (data: any) => {
       setActiveGuests((prev) => prev.map(g => 
         g.sessionId === data.sessionId 
           ? { ...g, isMuted: data.isMuted } 
@@ -159,22 +146,34 @@ export function useLiveChat(roomId: string | null, enabled = true) {
       if (mySessionId === data.sessionId && data.isMuted) {
         alert('Anda telah di-mute oleh moderator.');
       }
-    });
+    };
 
-    // Event: Status room berubah (active/inactive)
-    channel.bind('room-status', (data: any) => {
+    const handleRoomStatus = (data: any) => {
       if (!data.isActive) {
         setRoomInactive(true);
         setIsConnected(false);
       }
-    });
+    };
+
+    pusher.connection.bind('connected', handleConnected);
+    pusher.connection.bind('error', handleError);
+    pusher.connection.bind('disconnected', handleDisconnected);
+    channel.bind('new-message', handleNewMessage);
+    channel.bind('message-deleted', handleMessageDeleted);
+    channel.bind('guest-muted', handleGuestMuted);
+    channel.bind('room-status', handleRoomStatus);
 
     return () => {
       disposed = true;
       clearInterval(statsInterval);
-      channel.unbind_all();
-      pusher.unsubscribe(channelName);
-      pusher.disconnect();
+      pusher.connection.unbind('connected', handleConnected);
+      pusher.connection.unbind('error', handleError);
+      pusher.connection.unbind('disconnected', handleDisconnected);
+      channel.unbind('new-message', handleNewMessage);
+      channel.unbind('message-deleted', handleMessageDeleted);
+      channel.unbind('guest-muted', handleGuestMuted);
+      channel.unbind('room-status', handleRoomStatus);
+      unsubscribePusherChannel(channelName);
     };
   }, [roomId, enabled, reconnectTrigger]);
 

@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Pusher from 'pusher-js';
 import { FiMessageCircle } from 'react-icons/fi';
 import { useLiveChat } from '../hooks/useLiveChat';
 import GuestNameModal from '../components/chat/GuestNameModal';
 import LiveChatWindow from '../components/chat/LiveChatWindow';
 import ChatInputBox from '../components/chat/ChatInputBox';
+import { subscribePusherChannel, unsubscribePusherChannel } from '../hooks/usePusherClient';
 
 export default function LiveChatPage() {
   const [roomId, setRoomId] = useState<string | null>(null);
@@ -67,14 +67,11 @@ export default function LiveChatPage() {
   }, []);
 
   useEffect(() => {
-    const pusherKey = process.env.NEXT_PUBLIC_PUSHER_KEY || '';
-    const pusherCluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'ap1';
-    if (!pusherKey) return;
+    const subscription = subscribePusherChannel('live-status');
+    if (!subscription) return;
+    const { channel } = subscription;
 
-    const pusher = new Pusher(pusherKey, { cluster: pusherCluster, forceTLS: true });
-    const channel = pusher.subscribe('live-status');
-
-    channel.bind('live-started', async (data: { roomId?: string | null; liveChatEnabled?: boolean }) => {
+    const handleLiveStarted = async (data: { roomId?: string | null; liveChatEnabled?: boolean }) => {
       setLiveChatEnabled(data.liveChatEnabled !== false);
       if (!data.roomId) return;
       setRoomId(data.roomId);
@@ -86,19 +83,22 @@ export default function LiveChatPage() {
       if (sessionData.active && sessionData.guestName) {
         setUserName(sessionData.guestName);
       }
-    });
+    };
 
-    channel.bind('live-ended', () => {
+    const handleLiveEnded = () => {
       setIsLive(false);
       setLiveChatEnabled(false);
       setRoomId(null);
       setUserName(null);
-    });
+    };
+
+    channel.bind('live-started', handleLiveStarted);
+    channel.bind('live-ended', handleLiveEnded);
 
     return () => {
-      channel.unbind_all();
-      pusher.unsubscribe('live-status');
-      pusher.disconnect();
+      channel.unbind('live-started', handleLiveStarted);
+      channel.unbind('live-ended', handleLiveEnded);
+      unsubscribePusherChannel('live-status');
     };
   }, []);
 
