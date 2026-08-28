@@ -2,8 +2,15 @@
 import Navbar from "../components/Navbar";
 import FooterSection from "../components/FooterSection";
 import Image from "next/image";
+import Link from "next/link";
 import ButtonPrimary from "../components/ButtonPrimary";
+import { Swiper, SwiperSlide } from "swiper/react";
+import SwiperCore, { Navigation, Pagination } from "swiper";
+import "swiper/css";
+import "swiper/css/navigation";
+import "swiper/css/pagination";
 import { useEffect, useState } from "react";
+import GlobalAudioPlayer from "../components/GlobalAudioPlayer";
 import PodcastAudioPlayer from "../components/PodcastAudioPlayer";
 import ProgramsSlider from "../components/ProgramsSlider";
 
