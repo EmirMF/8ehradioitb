@@ -62,9 +62,6 @@ const nextConfig = {
   compress: true,
   poweredByHeader: false,
   generateEtags: true,
-  experimental: {
-    optimizeCss: true,
-  },
   async headers() {
     return [
       {
