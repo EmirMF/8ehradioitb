@@ -4,6 +4,8 @@ import Navbar from "@/app/components/Navbar";
 import FooterSection from "@/app/components/FooterSection";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Blog — 8EH Radio ITB | Artikel & Berita Kampus",
   description:

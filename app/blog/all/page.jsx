@@ -6,6 +6,8 @@ import FooterSection from "@/app/components/FooterSection";
 import Pagination from "@/app/components/Pagination";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Semua Artikel — 8EH Radio ITB",
   description:

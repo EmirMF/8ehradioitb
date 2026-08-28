@@ -1,42 +1,10 @@
-import { Geist, Geist_Mono } from "next/font/google";
-import { Plus_Jakarta_Sans, Arimo, Instrument_Serif } from "next/font/google";
 import "./globals.css";
 import GlobalAudioPlayer from "@/app/components/GlobalAudioPlayer";
 import AuthProvider from "@/app/components/AuthProvider";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 import StructuredData from "@/app/components/StructuredData";
-import ChatWidgetWrapper from "@/app/components/ai/ChatWidgetWrapper";
 import ToastProvider from "@/app/components/ToastProvider";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-const plusJakartaSans = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  variable: "--font-plus-jakarta-sans",
-  style: ["normal", "italic"],
-  weight: ["400", "500", "600", "700", "800"],
-});
-
-const arimo = Arimo({
-  subsets: ["latin"],
-  variable: "--font-arimo",
-  weight: ["400", "500", "600", "700"],
-});
-
-const instrumentSerif = Instrument_Serif({
-  subsets: ["latin"],
-  variable: "--font-instrument-serif",
-  weight: ["400"],
-});
 
 export const viewport = {
   width: "device-width",
@@ -153,15 +121,12 @@ export default async function RootLayout({ children }) {
       <head>
         <StructuredData />
       </head>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} ${plusJakartaSans.variable} ${arimo.variable} ${instrumentSerif.variable} antialiased`}
-      >
+      <body className="antialiased">
         <AuthProvider session={session}>
           {children}
           <GlobalAudioPlayer />
           <ToastProvider />
         </AuthProvider>
-        {/* <ChatWidgetWrapper /> */}
       </body>
     </html>
   );
