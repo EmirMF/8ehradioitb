@@ -4,12 +4,13 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import ButtonPrimary from "@/app/components/ButtonPrimary";
 
-// ponytail: hardcoded target for oprec 2026. Update this date for next year's oprec.
-const TARGET_DATE = new Date("2026-08-30T00:00:00+07:00");
+// ponytail: hardcoded targets for oprec 2026. Update these dates for next year's oprec.
+const OPEN_DATE = new Date("2026-08-30T07:00:00+07:00");
+const CLOSE_DATE = new Date("2026-09-06T23:59:00+07:00");
 const FORM_URL = "https://8eh.link/join";
 
-function getTimeLeft() {
-  const diff = TARGET_DATE.getTime() - Date.now();
+function getTimeLeft(targetDate, now) {
+  const diff = targetDate.getTime() - now;
   if (diff <= 0) return null;
   return {
     days: Math.floor(diff / 86400000),
@@ -17,6 +18,20 @@ function getTimeLeft() {
     minutes: Math.floor((diff / 60000) % 60),
     seconds: Math.floor((diff / 1000) % 60),
   };
+}
+
+function getOprecState() {
+  const now = Date.now();
+
+  if (now < OPEN_DATE.getTime()) {
+    return { status: "before", timeLeft: getTimeLeft(OPEN_DATE, now) };
+  }
+
+  if (now < CLOSE_DATE.getTime()) {
+    return { status: "open", timeLeft: getTimeLeft(CLOSE_DATE, now) };
+  }
+
+  return { status: "closed", timeLeft: null };
 }
 
 function TimeBox({ value, label }) {
@@ -33,10 +48,11 @@ function TimeBox({ value, label }) {
 }
 
 export default function OprecBanner() {
-  const [timeLeft, setTimeLeft] = useState(getTimeLeft());
+  const [oprecState, setOprecState] = useState(getOprecState());
+  const isOpen = oprecState.status === "open";
 
   useEffect(() => {
-    const id = setInterval(() => setTimeLeft(getTimeLeft()), 1000);
+    const id = setInterval(() => setOprecState(getOprecState()), 1000);
     return () => clearInterval(id);
   }, []);
 
@@ -88,43 +104,37 @@ export default function OprecBanner() {
           ??
         </h2>
         <p className="font-body text-md text-gray-600 mb-10 max-w-xl mx-auto">
-          Regenerasi 8EH Radio ITB 2026 segera dibuka. Siapkan dirimu untuk
-          bergabung!
+          {oprecState.status === "before"
+            ? "Regenerasi 8EH Radio ITB 2026 segera dibuka. Siapkan dirimu untuk bergabung!"
+            : oprecState.status === "open"
+              ? "Pendaftaran dibuka sampai 6 September 2026 pukul 23.59 WIB."
+              : "Pendaftaran Regenerasi 8EH Radio ITB 2026 sudah ditutup."}
         </p>
 
-        {timeLeft ? (
+        {oprecState.timeLeft ? (
           <div className="flex items-center justify-center gap-2 sm:gap-3 mb-10">
-            <TimeBox value={timeLeft.days} label="Hari" />
+            <TimeBox value={oprecState.timeLeft.days} label="Hari" />
             <span className="font-accent text-3xl sm:text-4xl font-bold text-gray-300 pb-5">
               :
             </span>
-            <TimeBox value={timeLeft.hours} label="Jam" />
+            <TimeBox value={oprecState.timeLeft.hours} label="Jam" />
             <span className="font-accent text-3xl sm:text-4xl font-bold text-gray-300 pb-5">
               :
             </span>
-            <TimeBox value={timeLeft.minutes} label="Menit" />
+            <TimeBox value={oprecState.timeLeft.minutes} label="Menit" />
             <span className="font-accent text-3xl sm:text-4xl font-bold text-gray-300 pb-5">
               :
             </span>
-            <TimeBox value={timeLeft.seconds} label="Detik" />
+            <TimeBox value={oprecState.timeLeft.seconds} label="Detik" />
           </div>
         ) : (
           <p className="font-accent text-3xl sm:text-4xl text-[#D83232] font-bold mb-10">
-            Pendaftaran Dibuka!
+            Pendaftaran Ditutup
           </p>
         )}
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          {timeLeft ? (
-            <ButtonPrimary
-              disabled
-              aria-disabled="true"
-              aria-label="Pendaftaran belum dibuka"
-              className="!bg-gray-300 !text-gray-500 !px-8 !py-3 shadow-none cursor-not-allowed hover:!bg-gray-300"
-            >
-              Daftar Sekarang
-            </ButtonPrimary>
-          ) : (
+          {isOpen ? (
             <a
               href={FORM_URL}
               target="_blank"
@@ -135,6 +145,19 @@ export default function OprecBanner() {
                 Daftar Sekarang
               </ButtonPrimary>
             </a>
+          ) : (
+            <ButtonPrimary
+              disabled
+              aria-disabled="true"
+              aria-label={
+                oprecState.status === "before"
+                  ? "Pendaftaran belum dibuka"
+                  : "Pendaftaran sudah ditutup"
+              }
+              className="!bg-gray-300 !text-gray-500 !px-8 !py-3 shadow-none cursor-not-allowed hover:!bg-gray-300"
+            >
+              Daftar Sekarang
+            </ButtonPrimary>
           )}
 
           <div className="flex items-center gap-3">
