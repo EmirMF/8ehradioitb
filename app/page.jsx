@@ -1,15 +1,14 @@
 import Navbar from "@/app/components/Navbar";
 import FooterSection from "@/app/components/FooterSection";
-import nextDynamic from "next/dynamic";
+import dynamic from "next/dynamic";
 import HeroSection from "@/app/components/home/HeroSection";
 import PodcastList from "@/app/components/home/PodcastList";
 import NewsList from "@/app/components/home/NewsList";
 import TuneTracker from "@/app/components/home/TuneTracker";
+import ProgramsSection from "@/app/components/home/ProgramsSection";
 import { prisma } from "@/lib/prisma";
 
-export const dynamic = "force-dynamic";
-
-const BoardSliderAnnouncer = nextDynamic(
+const BoardSliderAnnouncer = dynamic(
   () => import("@/app/components/BoardSliderAnnouncer"),
   {
     loading: () => (
@@ -134,6 +133,7 @@ export default async function Home() {
       <HeroSection />
       <PodcastList podcasts={serializedPodcasts} />
       <NewsList newsItems={serializedNews} />
+      {/* <ProgramsSection /> */}
       <TuneTracker tunes={serializedTunes} meta={serializedMeta} />
       <AnnouncersSection />
       <FooterSection />

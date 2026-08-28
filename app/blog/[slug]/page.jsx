@@ -10,8 +10,6 @@ import ArticleStructuredData from "@/app/components/ArticleStructuredData";
 import TLDRSection from "@/app/components/TLDRSection";
 import { cache } from "react";
 
-export const dynamic = "force-dynamic";
-
 const getPost = cache(async (slug) => {
   const post = await prisma.blogPost.findUnique({
     where: { slug },
